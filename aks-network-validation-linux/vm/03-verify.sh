@@ -575,28 +575,13 @@ rs_snapshot() {
   py kube rs_pod_snapshot "$(jq -cn --arg n "@$WORK/nodes.json" --arg p "@$WORK/rs-pods.json" '{nodes: $n, pods: $p}')"
 }
 
-rs_watch_start() {
-  # 서버가 watch 를 끊어도 이어 받도록 반복한다. 행: 이름|deletionTimestamp|유예초 (kubectl 이 탭을 공백으로 바꾸므로 | 사용)
-  (while :; do
-    kube get pods -n scale -l app=hpa-demo -w \
-      -o jsonpath='{.metadata.name}{"|"}{.metadata.deletionTimestamp}{"|"}{.metadata.deletionGracePeriodSeconds}{"\n"}' 2>/dev/null
-    sleep 1
-  done) >>"$1" &
-  RS_WATCH_PID=$!
-}
-
-rs_watch_stop() {
-  [[ -n "${RS_WATCH_PID:-}" ]] || return 0
-  pkill -P "$RS_WATCH_PID" 2>/dev/null || true
-  kill "$RS_WATCH_PID" 2>/dev/null || true
-  wait "$RS_WATCH_PID" 2>/dev/null || true
-  RS_WATCH_PID=""
-}
-
 floor_test() {
   # 분산 제약은 배치 때만 적용되고, 축소 때 지울 Pod 는 ReplicaSet 삭제 규칙이 고른다.
   # 시작 개수를 바꿔 가며 축소 직전 Pod(노드·Ready 시각·UID 등)를 기록하고, Pod watch 로 잡은 삭제 요청 시각과 규칙 예측을 대조한다
   local start n snap final ev names rounds="$WORK/rounds.jsonl" fv watch="$WORK/rs-watch.tsv"
+  # run_test 서브셸은 부모 trap 을 물려받지 않으므로, 중단·종료 시 watch 정리를 여기서 건다
+  trap rs_watch_stop EXIT
+  trap 'exit 143' TERM INT
   log '== 축소 시 삭제 Pod 선택 (T12c) =='
   : >"$rounds"
   for start in "${T12C_STARTS[@]}"; do

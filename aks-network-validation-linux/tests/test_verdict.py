@@ -345,6 +345,9 @@ def test_deletion_rule_log_boundary_counts_as_match():
     {"deletes": [{"name": "p4", "time": _iso(0)}]},                        # 삭제 이벤트 부족
     {"deletes": [{"name": "zz", "time": _iso(0)}, {"name": "p5", "time": _iso(-61)}]},  # 스냅숏에 없는 Pod
     {"final": ["p1", "p2", "p9"]},                                          # 최종 Pod 가 예상과 다름
+    {"deletes": [{"name": "p5", "time": _iso(-61)}],                        # 앞 삭제 누락(남은 p4 가 예측을 흔듦)
+     "pods": [_rp("p1", "u1", "n1", "1", 3600), _rp("p2", "u2", "n2", "2", 3600), _rp("p3", "u3", "n3", "3", 3600),
+              _rp("p4", "u4", "n2", "2", 400), _rp("p5", "u5", "n3", "3", 401)]},
 ])
 def test_deletion_rule_incomplete_inconclusive(change):
     assert deletion_rule_verdict([{**_round_5_to_3(), **change}])["verdict"] == "INCONCLUSIVE"
@@ -386,11 +389,39 @@ def test_deletion_rule_nontransitive_tie_accepts_tied_pod():
     assert "비이행" in r["reason"]
 
 
+def test_deletion_rule_batch_nontransitive_tie_accepted():
+    # 한 동기화에서 2개 삭제. a = c, a < b < c 라 입력 순서가 [c, a, b, …] 이면 Go 삽입 정렬은 {c, a} 를 고른다
+    pods = [_rp("a", "u2", "n1", "1", 500, created_age=501), _rp("b", "u5", "n2", "2", 499, created_age=501),
+            _rp("c", "ue", "n3", "3", 500, created_age=501), _rp("o1", "u0", "n4", "1", 5000),
+            _rp("o2", "u1", "n5", "2", 5000)]
+    deletes = [{"name": "c", "time": _iso(0)}, {"name": "a", "time": _iso(-1)}]
+    rnd = {"start": 5, "pods": pods, "deletes": deletes, "final": ["b", "o1", "o2"]}
+    r = deletion_rule_verdict([rnd])
+    assert r["verdict"] == "PASS"
+    assert "비이행" in r["reason"]
+
+
+def test_deletion_rule_close_deletes_may_be_separate_syncs():
+    # 1초 간격이어도 서로 다른 동기화일 수 있다: p2 삭제 뒤 노드 몰림을 다시 세면 n3 의 p3 가 다음
+    rnd = _round_batch(gap=1)
+    rnd["deletes"][1]["name"] = "p3"
+    rnd["final"] = ["p1", "p4", "p5"]
+    assert deletion_rule_verdict([rnd])["verdict"] == "PASS"
+
+
 def test_rs_possible_first_includes_tie_blocked_pod():
     # 실측 12개 1회차 축약: b 가 c 보다 앞서지만, c 와 완전 동률인 a 가 b 를 막아 c 가 맨 앞이 될 수 있음
     pods = [_rp("b", "u5", "n2", "2", 499, created_age=501), _rp("c", "ue", "n3", "3", 500, created_age=501),
             _rp("a", "u2", "n1", "1", 500, created_age=501), _rp("old", "u0", "n4", "1", 5000)]
     assert rs_possible_first(pods, NOW_ISO) == {"a", "b", "c"}
+
+
+def test_rs_possible_first_chain_blocked_pod():
+    # 실측 12개 2회차 축약: k 는 모두에 앞서지만 r 과 완전 동률, r 은 f 를 넘지 못하고 f 는 b 와 완전 동률.
+    # 입력 순서 [b, f, r, k] 를 삽입 정렬하면 b 가 맨 앞에 남는다(막는 Pod 가 한 단계가 아니라 사슬)
+    pods = [_rp("b", "ud", "n1", "1", 344, created_age=346), _rp("f", "u1", "n2", "2", 344, created_age=346),
+            _rp("r", "u5", "n3", "3", 343, created_age=345), _rp("k", "u0", "n4", "1", 343, created_age=345)]
+    assert rs_possible_first(pods, NOW_ISO) == {"b", "f", "r", "k"}
 
 
 def test_cli_string_result(capsys):

@@ -49,7 +49,7 @@ cd aks-network-validation-linux
 local/00-bootstrap.sh --force      # 구독 확인 프롬프트 생략. 대화형이면 --force 없이 실행
 local/run.sh infra                 # 약 25분(AKS·노드 풀 생성)
 local/run.sh apply                 # 약 5분
-local/run.sh verify                # 약 40분(T13b 의 CAS 축소 대기 포함)
+local/run.sh verify                # 약 110분(T13b 의 CAS 축소 대기 약 40분 + T12c 축소 6회 약 70분)
 ```
 
 - 모든 단계는 멱등입니다. 실패하면 원인을 고친 뒤 **그 단계만** 다시 실행합니다.
@@ -147,7 +147,7 @@ local/run.sh verify                # 약 40분(T13b 의 CAS 축소 대기 포함
 | T23 | app/bff-b | 다른 노드 :10250 (kubelet) | 401 | PASS | 대조군 nomesh/probe=401 |
 | T12 | — | hpa-demo minReplicas 5→2 | 5,4,3,2 (61·62초 간격) | PASS |  |
 | T12b | — | hpa-demo 영역 분포 | 1/2/2 → 0/1/1 | INFO | Pod 2개·영역 3개 |
-| T12c | — | hpa-demo 5·9·12개 → minReplicas 3, 각 2회 | 1/2/2·3/3/3·4/4/4 → 6회 모두 1/1/1 | PASS | 삭제 34건 모두 ReplicaSet 삭제 규칙 예측과 일치(Ready 동률 비이행 비교 4건). 1/1/1 은 영역당 노드 1개·1개씩 축소에서 노드 혼잡 규칙 결과이며, 축소 뒤 영역 균등은 보장되지 않음 |
+| T12c | — | hpa-demo 5·9·12개 → minReplicas 3, 각 2회 | 2/2/1·3/3/3·4/4/4 → 6회 모두 1/1/1 | PASS | 삭제 34건 모두 ReplicaSet 삭제 규칙 예측과 일치(로그 구간 경계·완전 동률로 후보 2개 이상 20건, Ready 동률 비이행 비교 5건, 한 번에 2개 삭제 1회). 1/1/1 은 영역당 노드 1개에서 노드 혼잡 규칙이 작동한 결과이며, 축소 뒤 영역 균등은 보장되지 않음(2026-11-22 재테스트) |
 | T13 | — | userz1/2/3 | 노드 1/1/1 → 2/2/2 | PASS | balanceSimilarNodeGroups=true |
 | T13b | — | zone-spread 6개 | Pod 2/2/2, 노드 1/1/1 → 2/2/2 | PASS | Running 6/6, 110초 |
 | T14 | kubelet | readinessProbe 4개 | Ready 4/4, rewrite 4/4 | PASS |  |

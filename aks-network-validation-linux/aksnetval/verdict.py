@@ -219,24 +219,48 @@ def _zone_text(pods: list[dict]) -> str:
     return "/".join(str(c.get(z, 0)) for z in ("1", "2", "3"))
 
 
-def _rs_first_info(pods: list[dict], now) -> tuple[set[str], set[str]]:
-    """(맨 앞에 올 수 있는 Pod, 그중 다른 Pod 에 앞섬을 당하는데도 동률 비이행 때문에 가능한 Pod)."""
-    now = _ts(now) if isinstance(now, str) else now
+def _node_rank(pods: list[dict]) -> dict[str, int]:
     rank: dict[str, int] = {}
     for p in pods:
         rank[p["node"]] = rank.get(p["node"], 0) + 1
+    return rank
+
+
+def _rs_first_info(pods: list[dict], now, rank: dict | None = None) -> tuple[set[str], set[str]]:
+    """(맨 앞에 올 수 있는 Pod, 그중 다른 Pod 에 앞섬을 당하는데도 동률 비이행 때문에 가능한 Pod)."""
+    now = _ts(now) if isinstance(now, str) else now
+    rank = rank or _node_rank(pods)
 
     def lt(a, b):
         return _rs_cmp(a, b, rank, now)[0] < 0
 
     possible, beaten = set(), set()
     for x in pods:
-        ys = [y for y in pods if lt(y, x)]
-        if all(any(not lt(z, x) and not lt(y, z) for z in pods if z is not x and z is not y) for y in ys):
+        if not any(lt(y, x) for y in pods):
             possible.add(x["name"])
-            if ys:
-                beaten.add(x["name"])
+        elif len(pods) <= 12 and _insertion_can_lead(x, pods, lt):
+            # Go 정렬은 12개 이하에서만 삽입 정렬이라 이 추론이 성립한다
+            possible.add(x["name"])
+            beaten.add(x["name"])
     return possible, beaten
+
+
+def _insertion_can_lead(x: dict, pods: list[dict], lt) -> bool:
+    # x 를 맨 앞에 두고, 삽입 정렬로 넣어도 x 를 넘지 않는 Pod 를 더 넣을 수 없을 때까지 넣는다.
+    # 삽입은 기존 순서를 유지하고 멈출 자리만 늘리므로, 한 번 넣을 수 있던 Pod 는 계속 넣을 수 있다(탐욕으로 충분)
+    order, rest = [x], [p for p in pods if p is not x]
+    grew = True
+    while rest and grew:
+        grew = False
+        for e in list(rest):
+            j = len(order)
+            while j > 0 and lt(e, order[j - 1]):
+                j -= 1
+            if j > 0:
+                order.insert(j, e)
+                rest.remove(e)
+                grew = True
+    return not rest
 
 
 def rs_possible_first(pods: list[dict], now) -> set[str]:
@@ -244,27 +268,14 @@ def rs_possible_first(pods: list[dict], now) -> set[str]:
 
     Ready·생성 시각이 같으면 6·8번을 건너뛰어 완전 동률이 되는데, 1초 차이 Pod 와는 UID 로 갈리므로
     비교가 비이행적일 수 있다(a = c, a < b < c). Pod 가 12개 이하면 Go 정렬은 삽입 정렬이라
-    입력(인포머 캐시) 순서에 따라 결과가 달라진다. x 보다 앞서는 y 마다 y 를 막을 z(x 를 넘지 않고 y 도 z 를 넘지 못함)가
-    있으면 x 가 맨 앞이 될 수 있다.
+    입력(인포머 캐시) 순서에 따라 결과가 달라진다. x 를 맨 앞에 둔 입력 순서 중 삽입 정렬 뒤에도 x 가 맨 앞에 남는 순서가
+    있으면(막는 Pod 가 사슬로 이어져도 됨) x 가 맨 앞이 될 수 있다.
     """
     return _rs_first_info(pods, now)[0]
 
 
-def _rs_topk(pods: list[dict], now, k: int) -> tuple[set, set, str]:
-    """한 번의 동기화에서 k개를 지울 때: 반드시 지울 Pod, k번째와 동률인 후보, k번째와 다음을 가른 규칙."""
-    rank: dict[str, int] = {}
-    for p in pods:
-        rank[p["node"]] = rank.get(p["node"], 0) + 1
-    order = sorted(pods, key=cmp_to_key(lambda a, b: _rs_cmp(a, b, rank, now)[0]))
-    kth = order[k - 1]
-    must = {p["name"] for p in order if _rs_cmp(p, kth, rank, now)[0] < 0}
-    tied = {p["name"] for p in order if _rs_cmp(p, kth, rank, now)[0] == 0}
-    rule = _rs_cmp(kth, order[k], rank, now)[1] if len(order) > k else ""
-    return must, tied, rule
-
-
 def _batches(deletes: list[dict], gap: float = 2.0) -> list[list[dict]]:
-    # 요청 시각이 gap 초 안에 몰린 삭제는 ReplicaSet 의 한 번 동기화(한 번 정렬 후 상위 k개)로 본다
+    # 요청 시각이 gap 초 안에 몰린 삭제는 한 묶음으로 판정한다(한 번 동기화 또는 1개씩 동기화)
     out: list[list[dict]] = []
     for d in sorted(deletes, key=lambda d: _ts(d["time"])):
         if out and (_ts(d["time"]) - _ts(out[-1][0]["time"])).total_seconds() <= gap:
@@ -274,70 +285,95 @@ def _batches(deletes: list[dict], gap: float = 2.0) -> list[list[dict]]:
     return out
 
 
+def _batch_explained(pods: list[dict], names: set[str], now) -> int:
+    """names 를 지운 것이 규칙으로 설명되는지. 2: 동률 비이행 없이 설명, 1: 비이행 동률로만 설명, 0: 설명 불가.
+    한 번의 동기화(정렬 1회, 노드별 개수 고정)와 1개씩 별도 동기화(노드별 개수 재계산) 두 해석을 모두 본다.
+    정렬 1회에서 앞에서부터 k개는 '남은 Pod 중 맨 앞에 올 수 있는 Pod'를 차례로 고른 결과와 같다."""
+    best = 0
+    for fixed in (True, False):
+        base_rank = _node_rank(pods) if fixed else None
+        memo: dict[frozenset, int] = {}
+
+        def go(left: frozenset) -> int:
+            if not left:
+                return 2
+            if left in memo:
+                return memo[left]
+            rest = [p for p in pods if p["name"] not in names or p["name"] in left]
+            possible, beaten = _rs_first_info(rest, now, base_rank)
+            r = 0
+            for n in left & possible:
+                sub = go(left - {n})
+                r = max(r, sub if n not in beaten else min(sub, 1))
+                if r == 2:
+                    break
+            memo[left] = r
+            return r
+
+        best = max(best, go(frozenset(names)))
+        if best == 2:
+            break
+    return best
+
+
 def deletion_rule_verdict(rounds: list[dict], target: int = 3) -> dict:
     """T12c: 축소 때 실제 삭제된 Pod 가 ReplicaSet 삭제 규칙(1~8번)으로 계산한 예측과 같은지.
     삭제 시각은 초 단위라 컨트롤러의 now 를 -3~+1초 범위로 흔들어, 로그 구간 경계에서 갈리면 후보를 모두 인정한다.
-    같은 동기화에서 여러 개를 지우면 한 번 정렬한 상위 k개로 예측한다(노드별 개수 재계산 없음)."""
+    2초 안에 몰린 삭제는 한 번의 동기화(정렬 1회, 노드별 개수 재계산 없음)나 1개씩 별도 동기화 어느 쪽으로든 설명되면 인정한다.
+    삭제 기록이 빠진 회차는 남은 Pod 가 이후 예측을 흔들므로 판정하지 않는다(INCONCLUSIVE)."""
     if not rounds:
         return {"verdict": "INCONCLUSIVE", "observed": "회차 없음", "reason": "측정한 회차 없음"}
-    observed, problems, mismatches, rules = [], [], [], {}
+    observed, problems, mismatches = [], [], []
     steps = boundary = nontrans = 0
     multi: dict[int, int] = {}
     for i, rd in enumerate(rounds, 1):
         pods = {p["name"]: p for p in rd["pods"]}
         label = f"{i}회({rd['start']}개)"
+        after = [pods[n] for n in rd["final"] if n in pods]
+        observed.append(f"{rd['start']}개 {_zone_text(rd['pods'])}→{_zone_text(after)}")
+        deleted = [d["name"] for d in rd["deletes"]]
+        unknown = set(deleted) - set(pods)
+        if unknown:
+            problems.append(f"{label} 스냅숏에 없는 Pod 삭제: {','.join(sorted(unknown))}")
+            continue
+        if len(deleted) != rd["start"] - target:
+            problems.append(f"{label} 삭제 {len(deleted)}건(기대 {rd['start'] - target}건)")
+            continue
+        if sorted(rd["final"]) != sorted(set(pods) - set(deleted)):
+            problems.append(f"{label} 최종 Pod 가 예상과 다름")
+            continue
         active = dict(pods)
-        if len(rd["deletes"]) != rd["start"] - target:
-            problems.append(f"{label} 삭제 {len(rd['deletes'])}건(기대 {rd['start'] - target}건)")
         for batch in _batches(rd["deletes"]):
             names = {d["name"] for d in batch}
-            missing = names - set(active)
-            if missing:
-                problems.append(f"{label} 스냅숏에 없는 Pod 삭제: {','.join(sorted(missing))}")
-                break
             k = len(batch)
             if k > 1:
                 multi[k] = multi.get(k, 0) + 1
             t = _ts(batch[0]["time"])
-            ok = strict = False
+            res = 0
             union: set[str] = set()
             for j in range(-12, 5):
                 now_j = t + timedelta(seconds=j * 0.25)
-                if k == 1:
-                    possible, beaten = _rs_first_info(list(active.values()), now_j)
-                    union |= possible - beaten
-                    if names <= possible:
-                        ok = True
-                        strict = strict or not (names & beaten)
-                else:
-                    must, tied, _ = _rs_topk(list(active.values()), now_j, k)
-                    union |= must | tied
-                    if must <= names <= must | tied:
-                        ok = strict = True
-            if not ok:
+                possible, beaten = _rs_first_info(list(active.values()), now_j)
+                union |= possible - beaten
+                if res < 2:
+                    res = max(res, _batch_explained(list(active.values()), names, now_j))
+            if not res:
                 mismatches.append(f"{label} 실제 {','.join(sorted(names))} / 예측 후보 {','.join(sorted(union))}")
             else:
                 steps += k
-                nontrans += not strict
-                boundary += len(union) > k
-                rule = _rs_topk(list(active.values()), t, k)[2]
-                rules[rule] = rules.get(rule, 0) + 1
+                nontrans += res == 1
+                boundary += k == 1 and len(union) > 1
             for n in names:
                 del active[n]
-        if sorted(rd["final"]) != sorted(active):
-            problems.append(f"{label} 최종 Pod 가 예상과 다름")
-        after = [pods[n] for n in rd["final"] if n in pods]
-        observed.append(f"{rd['start']}개 {_zone_text(rd['pods'])}→{_zone_text(after)}")
     obs = ", ".join(observed)
     if mismatches:
         return {"verdict": "FAIL", "observed": obs, "reason": "예측과 다른 삭제: " + "; ".join(mismatches)}
     if problems:
         return {"verdict": "INCONCLUSIVE", "observed": obs, "reason": "; ".join(problems)}
-    rule_text = ", ".join(f"{k}번 {v}건" for k, v in sorted(rules.items()))
-    edge = "".join(f"({t} {n}건 포함)" for t, n in (("로그 구간 경계", boundary), ("Ready 동률 비이행 비교", nontrans)) if n)
+    edge = "".join(f"({t} {n}건 포함)" for t, n in (("로그 구간 경계·완전 동률로 후보 2개 이상", boundary), ("Ready 동률 비이행 비교", nontrans)) if n)
     batch_text = "; " + ", ".join(f"한 번에 {k}개 삭제 {v}회" for k, v in sorted(multi.items())) if multi else ""
     return {"verdict": "PASS", "observed": obs,
-            "reason": f"삭제 {steps}건 모두 ReplicaSet 규칙 예측과 일치{edge}{batch_text}; 다음 후보와 갈린 규칙: {rule_text}"}
+            "reason": f"삭제 {steps}건 모두 ReplicaSet 규칙 예측과 일치{edge}{batch_text}"}
 
 
 def probe_rewrite_verdict(pods: list[dict]) -> dict:

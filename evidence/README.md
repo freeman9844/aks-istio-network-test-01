@@ -16,8 +16,10 @@
 | 03 | `03-node-egress-fail_20261120-075659` | `--only network`(T1~T11, T14~T23), 새 클러스터 | 20건 PASS, **T22·T23 FAIL**(bff-b → 노드 :10250이 000, 대조군 probe 401). Cilium 기본값에서 NetworkPolicy `ipBlock`이 노드 IP에 매칭되지 않음 |
 | 04 | `04-node-egress-fix_20261120-082121` | `--only network`(T1~T11, T14~T23) | CiliumNetworkPolicy `app-egress-nodes`(`toEntities: [host, remote-node]`) 추가 후 **22건 PASS**(T22·T23 401) |
 | 05 | `05-t12c-rules_20261120-131301` | `--only floor`(T12c), 새 클러스터 | 5·9·12 → 3 각 2회, 6회 모두 1/1/1, 삭제 34건 모두 ReplicaSet 규칙 예측과 일치 → **PASS**. 첫 판정은 Ready 동률 비이행 비교 1건 때문에 FAIL이었고, 판정 로직을 고친 뒤 같은 원시 데이터(`.rounds.json`)로 재판정 |
+| 06a | `06a-t12c-predictor-gap_20261122-103327` | 코드 리뷰 수정 후 재빌드, `--only floor`(T12c) | **FAIL**. 12개 축소에서 예측 후보에 없던 Pod가 먼저 삭제됨. 클러스터 이상이 아니라 판정기 한계(삽입 정렬에서 동률이 사슬로 이어지는 경우를 한 단계만 고려). 판정기를 고친 뒤 같은 원시 데이터(`.rounds.json`)로 재판정하면 PASS |
+| 06 | `06-t12c-rules_20261122-114525` | 판정기 수정 후 `--only floor`(T12c) 재실행 | 2/2/1·3/3/3·4/4/4 → 6회 모두 1/1/1, 삭제 34건 모두 예측과 일치(후보 2개 이상 20건, Ready 동률 비이행 비교 5건, 한 번에 2개 삭제 1회) → **PASS**. 이 실행의 원시 `.rounds.json`은 VM 삭제 전에 회수하지 못해 판정 결과(`.md`·`.json`)만 보관 |
 
-종합 **26건 PASS + T12b INFO**는 네트워크 항목은 04, 스케일 항목은 T12·T12b·T13·T13b가 01, T12c가 05의 결과입니다.
+종합 **26건 PASS + T12b INFO**는 네트워크 항목은 04, 스케일 항목은 T12·T12b·T13·T13b가 01, T12c가 06(2026-11-22 재테스트)의 결과입니다.
 
 ### linux/logs/
 

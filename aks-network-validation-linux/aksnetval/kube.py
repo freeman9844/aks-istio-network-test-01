@@ -99,9 +99,18 @@ def rs_pod_snapshot(nodes: dict, pods: dict) -> list[dict]:
             "phase": st.get("phase", ""), "ready": ready, "ready_time": cond.get("lastTransitionTime") if ready else None,
             "created": md.get("creationTimestamp"),
             "restarts": max((c.get("restartCount", 0) for c in st.get("containerStatuses", [])), default=0),
-            "cost": int(cost),
+            "cost": _deletion_cost(cost),
         })
     return out
+
+
+def _deletion_cost(raw: str) -> int:
+    # 업스트림 GetDeletionCostFromPodAnnotations 처럼 int32 가 아니면 0
+    try:
+        v = int(raw)
+    except ValueError:
+        return 0
+    return v if -2**31 <= v < 2**31 else 0
 
 
 def rs_delete_times(rows: list[list[str]], names: list[str]) -> list[dict]:

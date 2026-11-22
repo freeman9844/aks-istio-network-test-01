@@ -50,6 +50,29 @@ kube() {
   kubectl --kubeconfig "${VM_ROOT:-/opt/aksnetval}/state/kubeconfig" "$@"
 }
 
+# rs_watch_start <파일>: hpa-demo Pod 삭제 요청을 백그라운드 watch 로 기록한다. 행: 이름|deletionTimestamp|유예초
+# (kubectl 이 탭을 공백으로 바꾸므로 | 사용). 호출부의 set -e·ERR trap 이 물려와도 끊기면 다시 붙는다
+rs_watch_start() {
+  (
+    set +e
+    trap - ERR
+    while :; do
+      kube get pods -n scale -l app=hpa-demo -w \
+        -o jsonpath='{.metadata.name}{"|"}{.metadata.deletionTimestamp}{"|"}{.metadata.deletionGracePeriodSeconds}{"\n"}' 2>/dev/null || true
+      sleep 1
+    done
+  ) >>"$1" &
+  RS_WATCH_PID=$!
+}
+
+rs_watch_stop() {
+  [[ -n "${RS_WATCH_PID:-}" ]] || return 0
+  pkill -P "$RS_WATCH_PID" 2>/dev/null || true
+  kill "$RS_WATCH_PID" 2>/dev/null || true
+  wait "$RS_WATCH_PID" 2>/dev/null || true
+  RS_WATCH_PID=""
+}
+
 # py <모듈> <함수> '<JSON kwargs>'
 py() {
   local mod="$1"

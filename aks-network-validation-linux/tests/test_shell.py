@@ -27,6 +27,38 @@ def test_scripts_exist():
     assert SCRIPTS, "검사할 .sh 가 없습니다"
 
 
+def test_rs_watch_survives_kubectl_failure_under_errexit(tmp_path):
+    # 03-verify.sh 의 run_test 처럼 set -eE + ERR trap 안에서도, watch 가 한 번 실패한 뒤 다시 붙어야 한다
+    count = tmp_path / "count"
+    stub = tmp_path / "kubectl"
+    stub.write_text(f"#!/usr/bin/env bash\necho $$ > {tmp_path}/stub.pid\necho x >> {count}\n"
+                    f"[ $(wc -l < {count}) -ge 2 ] || exit 1\necho 'p1|2026-01-01T00:00:30Z|30'\nsleep 30\n",
+                    encoding="utf-8")
+    stub.chmod(0o755)
+    out = tmp_path / "watch.txt"
+    r = bash(f"""source vm/lib/common.sh
+set -eE; trap 'echo ERR-TRAP' ERR
+rs_watch_start {out}
+pid=$RS_WATCH_PID
+sleep 3
+rs_watch_stop
+sleep 0.5
+kill -0 $pid 2>/dev/null && echo ALIVE
+kill -0 $(cat {tmp_path}/stub.pid) 2>/dev/null && echo STUB-ALIVE
+echo done""", {"PATH": f"{tmp_path}:/usr/bin:/bin", "VM_ROOT": str(tmp_path)})
+    assert r.returncode == 0, r.stderr
+    assert out.read_text().strip() == "p1|2026-01-01T00:00:30Z|30"
+    assert "ALIVE" not in r.stdout and "STUB-ALIVE" not in r.stdout and "ERR-TRAP" not in r.stdout
+
+
+def test_floor_test_stops_watch_on_exit():
+    # die·TERM 으로 floor_test 서브셸이 끝나도 watch 가 남지 않도록 EXIT trap 으로 정리한다
+    body = (ROOT / "vm/03-verify.sh").read_text(encoding="utf-8")
+    fn = body[body.index("floor_test() {"):]
+    fn = fn[:fn.index("\n}\n")]
+    assert "trap rs_watch_stop EXIT" in fn and "trap 'exit 143' TERM INT" in fn
+
+
 @pytest.mark.parametrize("path", SCRIPTS, ids=lambda p: str(p.relative_to(ROOT)))
 def test_bash_syntax(path):
     r = subprocess.run(["bash", "-n", str(path)], capture_output=True, text=True)

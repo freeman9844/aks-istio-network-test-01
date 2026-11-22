@@ -1,0 +1,595 @@
+deck:
+  title: "AKS 네트워크 통제 검증 — Linux 관리 VM판 설계와 결과"
+  level: L300
+  mode: fit
+  target_slides: 12
+  theme: light
+  brand: none
+  slide_numbers: true
+  topic_marker: false
+  footer: "AKS 네트워크 통제 검증 · 설계와 결과 v9 (Linux 관리 VM·Private Cluster 실측) 2026-11-22 · 기능 검증용(성능 검증 아님)"
+slides:
+  - layout: content
+    title: "검증 샘플 구성 — Private AKS · NSG · Istio · NetworkPolicy"
+    title_size: 26
+    archetype: architecture
+    blocks:
+      - type: shapes
+        id: topology
+        box: [30, 98, 1220, 572]
+        items:
+          - {kind: round, name: vnet, x: 0, y: 0, w: 1220, h: 570, fill: "FFFFFF", line: "008577", dash: true, radius: 6}
+          - {kind: text, name: vnet-title, x: 14, y: 8, w: 900, h: 24, text: "VNet 10.50.0.0/16 · rg-aksnetval-linux-krc · Korea Central · 가용성 영역 1·2·3", size: 13, bold: true, color: "008577", align: left}
+
+          - {kind: round, name: vm-allow, x: 15, y: 40, w: 200, h: 88, fill: "EAF6EC", line: "2E7D32", radius: 6}
+          - {kind: text, name: vm-allow-title, x: 23, y: 44, w: 184, h: 22, text: "snet-appgw-sim", size: 12, bold: true, color: "171717", align: left}
+          - {kind: text, name: vm-allow-body, x: 23, y: 66, w: 184, h: 58, text: "10.50.3.0/27\nvm-appgw-sim · B2s_v2\nApp Gateway 대체 (허용)", size: 11, color: "444444", align: left}
+          - {kind: round, name: vm-mgmt, x: 15, y: 140, w: 200, h: 108, fill: "EEF3FB", line: "1F4E79", radius: 6}
+          - {kind: text, name: vm-mgmt-title, x: 23, y: 144, w: 184, h: 22, text: "snet-mgmt", size: 12, bold: true, color: "171717", align: left}
+          - {kind: text, name: vm-mgmt-body, x: 23, y: 166, w: 184, h: 78, text: "10.50.3.64/27\nvm-mgmt · B2s_v2\naz vm run-command +\nsystemd-run으로 실행", size: 11, color: "444444", align: left}
+          - {kind: round, name: vm-deny, x: 15, y: 260, w: 200, h: 88, fill: "FDECEA", line: "C62828", radius: 6}
+          - {kind: text, name: vm-deny-title, x: 23, y: 264, w: 184, h: 22, text: "snet-other", size: 12, bold: true, color: "171717", align: left}
+          - {kind: text, name: vm-deny-body, x: 23, y: 286, w: 184, h: 58, text: "10.50.3.32/27\nvm-other · B2s_v2\n그 밖의 출발지 (차단)", size: 11, color: "444444", align: left}
+          - {kind: text, name: vm-note, x: 15, y: 360, w: 200, h: 50, text: "VM 3대 모두 공인 IP 없음\nNAT Gateway는 snet-mgmt만", size: 11, color: "666666", align: left}
+
+          - {kind: line, name: legend-allow, x: 20, y: 440, x2: 58, y2: 440, line: "2E7D32", line_w: 2}
+          - {kind: text, name: legend-allow-text, x: 64, y: 430, w: 150, h: 20, text: "허용 (200·연결 성공)", size: 11, color: "444444", align: left}
+          - {kind: line, name: legend-deny, x: 20, y: 470, x2: 58, y2: 470, line: "C62828", line_w: 2, dash: true}
+          - {kind: text, name: legend-deny-text, x: 64, y: 460, w: 150, h: 20, text: "차단 (403·시간 초과)", size: 11, color: "444444", align: left}
+          - {kind: text, name: legend-id, x: 20, y: 490, w: 195, h: 44, text: "T# = 검증 ID (다음 장)\n✕ = 차단을 기대", size: 11, color: "666666", align: left}
+
+          - {kind: round, name: ingress, x: 255, y: 40, w: 640, h: 56, fill: "FFF4E5", line: "FF8C00", radius: 6}
+          - {kind: text, name: ingress-title, x: 265, y: 43, w: 620, h: 22, text: "snet-ingress 10.50.1.0/27 · Istio 내부 LB IP 10.50.1.10 : 80", size: 12, bold: true, color: "171717", align: left}
+          - {kind: text, name: ingress-body, x: 265, y: 65, w: 620, h: 26, text: "nsg-ingress: Deny snet-appgw-sim → *  ·  LB IP 서브넷의 NSG는 효과 없음 (T3)", size: 11, color: "666666", align: left}
+
+          - {kind: round, name: aks-app, x: 255, y: 108, w: 640, h: 446, fill: "FFFFFF", line: "5578FF", dash: true, radius: 6}
+          - {kind: text, name: aks-app-title, x: 265, y: 112, w: 300, h: 40, text: "snet-aks-app 10.50.4.0/22\nPrivate AKS · CNI Overlay + Cilium", size: 12, bold: true, color: "1F4E79", align: left}
+          - {kind: text, name: aks-app-nsg, x: 655, y: 112, w: 232, h: 40, text: "nsg-aks-app → 10.50.1.10:80\n100 Allow appgw · 110 Deny other", size: 11, color: "444444", align: left}
+
+          - {kind: round, name: sys-pool, x: 268, y: 158, w: 614, h: 56, fill: "F3F4F6", line: "A6A6A6", radius: 5}
+          - {kind: round, name: api, x: 278, y: 165, w: 140, h: 42, fill: "EEF3FB", line: "1F4E79", radius: 4}
+          - {kind: text, name: api-text, x: 278, y: 167, w: 140, h: 38, text: "API 서버 (사설)\n10.50.4.4 · T15", size: 11, bold: true, color: "1F4E79"}
+          - {kind: text, name: sys-pool-text, x: 428, y: 164, w: 128, h: 44, text: "system 풀\nD4s_v5 ×1", size: 11, color: "171717", align: left}
+          - {kind: round, name: gw, x: 563, y: 165, w: 150, h: 42, fill: "FFF4E5", line: "FF8C00", radius: 4}
+          - {kind: text, name: gw-text, x: 563, y: 167, w: 150, h: 38, text: "Istio Ingress\nGateway", size: 11, bold: true, color: "171717"}
+          - {kind: round, name: istiod, x: 724, y: 165, w: 148, h: 42, fill: "FFFFFF", line: "A6A6A6", radius: 4}
+          - {kind: text, name: istiod-text, x: 724, y: 167, w: 148, h: 38, text: "istiod · CoreDNS\nmetrics-server", size: 11, color: "444444"}
+
+          - {kind: round, name: user-pool, x: 268, y: 224, w: 614, h: 318, fill: "FFFFFF", line: "5578FF", dash: true, radius: 5}
+          - {kind: text, name: user-pool-title, x: 278, y: 228, w: 300, h: 20, text: "userz1 · userz2 · userz3 (영역 1·2·3)", size: 12, bold: true, color: "1F4E79", align: left}
+          - {kind: text, name: user-pool-body, x: 712, y: 228, w: 166, h: 36, text: "D2s_v5 · CAS 1~3대\nbalance-similar=true", size: 11, color: "444444", align: left}
+          - {kind: text, name: gw-route, x: 597, y: 228, w: 96, h: 36, text: "Host 라우팅\nAuthZ (T1·T9)", size: 11, color: "A65300", align: left}
+
+          - {kind: round, name: web-band, x: 281, y: 268, w: 588, h: 70, fill: "E8F0FB", line: "5578FF", radius: 5}
+          - {kind: text, name: web-band-title, x: 291, y: 273, w: 170, h: 20, text: "TIER 1 · ns: web", size: 12, bold: true, color: "1F4E79", align: left}
+          - {kind: text, name: web-band-body, x: 291, y: 293, w: 176, h: 44, text: "STRICT mTLS\nNetPol deny-web-to-data", size: 11, color: "444444", align: left}
+          - {kind: round, name: web-a, x: 470, y: 276, w: 180, h: 54, fill: "FFFFFF", line: "5578FF", radius: 4}
+          - {kind: text, name: web-a-text, x: 470, y: 278, w: 180, h: 50, text: "web-a\nSA web-a · :8080", size: 11, bold: true, color: "171717"}
+          - {kind: round, name: web-b, x: 670, y: 276, w: 185, h: 54, fill: "FFFFFF", line: "5578FF", radius: 4}
+          - {kind: text, name: web-b-text, x: 670, y: 278, w: 185, h: 50, text: "web-b\nSA web-b · :8080", size: 11, bold: true, color: "171717"}
+
+          - {kind: round, name: app-band, x: 281, y: 372, w: 588, h: 70, fill: "E6F4F1", line: "008577", radius: 5}
+          - {kind: text, name: app-band-title, x: 291, y: 377, w: 170, h: 20, text: "TIER 2 · ns: app", size: 12, bold: true, color: "006B5C", align: left}
+          - {kind: text, name: app-band-body, x: 291, y: 397, w: 176, h: 44, text: "STRICT mTLS\n정책 4개 · PE 분리", size: 11, color: "444444", align: left}
+          - {kind: round, name: bff-a, x: 470, y: 380, w: 180, h: 54, fill: "FFFFFF", line: "008577", radius: 4}
+          - {kind: text, name: bff-a-text, x: 470, y: 382, w: 180, h: 50, text: "bff-a\nAuthZ: web-a SA만", size: 11, bold: true, color: "171717"}
+          - {kind: round, name: bff-b, x: 670, y: 380, w: 185, h: 54, fill: "FFFFFF", line: "008577", radius: 4}
+          - {kind: text, name: bff-b-text, x: 670, y: 382, w: 185, h: 50, text: "bff-b\nAuthZ: web-b SA만", size: 11, bold: true, color: "171717"}
+
+          - {kind: round, name: probe, x: 281, y: 484, w: 200, h: 52, fill: "FFFFFF", line: "A6A6A6", dash: true, radius: 4}
+          - {kind: text, name: probe-text, x: 289, y: 486, w: 186, h: 48, text: "ns: nomesh · probe\n→ bff 호출 실패 (T8)", size: 11, color: "444444", align: left}
+          - {kind: round, name: scale, x: 491, y: 484, w: 378, h: 52, fill: "FFFFFF", line: "A6A6A6", dash: true, radius: 4}
+          - {kind: text, name: scale-text, x: 499, y: 486, w: 364, h: 48, text: "ns: scale · hpa-demo (T12·T12b·T12c)\nzone-fill / zone-spread → 노드 확장 (T13·T13b)", size: 11, color: "444444", align: left}
+
+          - {kind: round, name: netpol, x: 915, y: 40, w: 290, h: 196, fill: "F7F7F7", line: "A6A6A6", radius: 6}
+          - {kind: text, name: netpol-title, x: 925, y: 46, w: 270, h: 22, text: "app 정책 4개 (허용 규칙 합집합)", size: 12, bold: true, color: "171717", align: left}
+          - {kind: text, name: netpol-body, x: 925, y: 72, w: 270, h: 158, text: "① app-egress-default (전체 Pod)\n클러스터 내부 + 0.0.0.0/0\nexcept 10.50.2.0/24\n② allow-bff-b-to-blob\n10.50.2.4/32 : TCP 443\n③ allow-bff-a-to-blob2\n10.50.2.5/32 : TCP 443\n④ app-egress-nodes (Cilium CNP)\ntoEntities host · remote-node", size: 11, color: "444444", align: left}
+
+          - {kind: round, name: pe, x: 915, y: 248, w: 290, h: 294, fill: "F3EEFB", line: "7B61FF", radius: 6}
+          - {kind: text, name: pe-title, x: 925, y: 254, w: 270, h: 22, text: "snet-pe 10.50.2.0/24", size: 12, bold: true, color: "171717", align: left}
+          - {kind: text, name: pe-desc, x: 965, y: 316, w: 232, h: 40, text: "Storage 2개 · 공용 액세스 차단\nprivatelink.blob · PE 고정 IP", size: 11, color: "444444", align: left}
+          - {kind: round, name: blob, x: 965, y: 377, w: 230, h: 40, fill: "FFFFFF", line: "7B61FF", radius: 4}
+          - {kind: text, name: blob-text, x: 965, y: 378, w: 230, h: 38, text: "Blob PE 10.50.2.4\nbff-b만 허용", size: 11, bold: true, color: "171717"}
+          - {kind: round, name: blob2, x: 965, y: 450, w: 230, h: 40, fill: "FFFFFF", line: "7B61FF", radius: 4}
+          - {kind: text, name: blob2-text, x: 965, y: 451, w: 230, h: 38, text: "Blob2 PE 10.50.2.5\nbff-a만 허용", size: 11, bold: true, color: "171717"}
+          - {kind: text, name: cross-pe, x: 925, y: 496, w: 270, h: 40, text: "✕ 교차 차단 (000)\nT16 bff-a→Blob · T18 bff-b→Blob2", size: 11, bold: true, color: "C62828", align: left}
+          - {kind: text, name: right-note, x: 915, y: 546, w: 290, h: 22, text: "HTTP 80 사용 (TLS 종단 미검증)", size: 11, color: "666666", align: left}
+
+          - {kind: arrow, name: a-t1, x: 215, y: 68, x2: 255, y2: 68, line: "2E7D32", line_w: 2}
+          - {kind: text, name: a-t1-label, x: 219, y: 46, w: 34, h: 20, text: "T1", size: 11, bold: true, color: "2E7D32"}
+          - {kind: arrow, name: a-t15, x: 215, y: 186, x2: 278, y2: 186, line: "2E7D32", line_w: 2}
+          - {kind: text, name: a-t15-label, x: 217, y: 164, w: 38, h: 20, text: "T15", size: 11, bold: true, color: "2E7D32"}
+          - {kind: arrow, name: a-t2, x: 215, y: 304, x2: 255, y2: 304, line: "C62828", line_w: 2, dash: true}
+          - {kind: text, name: a-t2-label, x: 216, y: 281, w: 40, h: 20, text: "✕T2", size: 11, bold: true, color: "C62828"}
+          - {kind: arrow, name: a-lb-gw, x: 638, y: 96, x2: 638, y2: 165, line: "FF8C00", line_w: 2}
+          - {kind: arrow, name: a-gw-weba, x: 590, y: 207, x2: 590, y2: 276, line: "FF8C00", line_w: 2}
+          - {kind: arrow, name: a-gw-webb, x: 700, y: 207, x2: 700, y2: 276, line: "FF8C00", line_w: 2}
+          - {kind: arrow, name: a-t4, x: 560, y: 330, x2: 560, y2: 380, line: "2E7D32", line_w: 2}
+          - {kind: text, name: a-t4-label, x: 566, y: 345, w: 30, h: 20, text: "T4", size: 11, bold: true, color: "2E7D32"}
+          - {kind: arrow, name: a-t6, x: 762, y: 330, x2: 762, y2: 380, line: "2E7D32", line_w: 2}
+          - {kind: text, name: a-t6-label, x: 768, y: 345, w: 30, h: 20, text: "T6", size: 11, bold: true, color: "2E7D32"}
+          - {kind: text, name: cross-label, x: 600, y: 345, w: 156, h: 20, text: "✕ 교차 403 (T5·T7)", size: 11, bold: true, color: "C62828"}
+          - {kind: arrow, name: a-t10, x: 869, y: 303, x2: 915, y2: 303, line: "C62828", line_w: 2, dash: true}
+          - {kind: text, name: a-t10-label, x: 918, y: 283, w: 46, h: 20, text: "✕T10", size: 11, bold: true, color: "C62828"}
+          - {kind: arrow, name: a-t11, x: 855, y: 397, x2: 965, y2: 397, line: "2E7D32", line_w: 2}
+          - {kind: text, name: a-t11-label, x: 919, y: 375, w: 44, h: 20, text: "T11", size: 11, bold: true, color: "2E7D32"}
+          - {kind: line, name: a-t17-down, x: 560, y: 434, x2: 560, y2: 470, line: "2E7D32", line_w: 2}
+          - {kind: arrow, name: a-t17, x: 560, y: 470, x2: 965, y2: 470, line: "2E7D32", line_w: 2}
+          - {kind: text, name: a-t17-label, x: 919, y: 448, w: 44, h: 20, text: "T17", size: 11, bold: true, color: "2E7D32"}
+    notes: |
+      오늘은 PowerShell판으로 했던 AKS 네트워크 통제 검증을 Linux 관리 VM에서 다시 돌린 결과를 공유드리려고 합니다. 먼저 이 장은 Linux판 구성을 한 장에 그린 그림이에요. 목적은 성능이 아니라, PRD에 적힌 NSG, Istio 인가, NetworkPolicy 규칙이 정말 의도대로 허용하고 차단하는지 보는 겁니다.
+      바깥 초록 점선이 VNet 10.50.0.0/16이고, 리소스 그룹은 PowerShell판과 섞이지 않게 rg-aksnetval-linux-krc로 따로 뒀습니다. 왼쪽에는 VM이 세 대 있는데요, vm-appgw-sim은 App Gateway를 대신하는 허용 출발지, vm-other는 막혀야 하는 출발지입니다. 가운데 새로 들어간 vm-mgmt는 snet-mgmt 10.50.3.64/27에 있어요. 모든 생성과 검증을 이 VM 안에서 run-command와 systemd-run으로 실행합니다. 세 VM 모두 공인 IP는 없고, NAT Gateway는 snet-mgmt에만 붙였어요.
+      또 하나 바뀐 점은 AKS가 Private Cluster라는 겁니다. API 서버는 노드 서브넷 안의 사설 IP 10.50.4.4로만 열리고 공용 FQDN도 껐는데, 이게 T15입니다. 그 밖의 Ingress, web과 bff 사이 인가, 교차 403은 기존과 같습니다.
+      오른쪽 snet-pe에는 PE가 두 개 생겼습니다. Blob PE 10.50.2.4는 bff-b만, Blob2 PE 10.50.2.5는 bff-a만 나갈 수 있어요. 이를 위해 app 네임스페이스에 오른쪽 위 NetworkPolicy 세 개를 걸었거든요. 그래서 T11과 T17은 허용, 서로 바뀐 T16과 T18은 차단이 기대값입니다. 발표는 이 구성 위에서 네트워크 검증을 먼저 끝내고, 그다음 스케일링 검증으로 넘어가겠습니다.
+    source: |
+      설계 문서: docs/superpowers/specs/2026-11-20-aks-network-validation-linux-mgmt-vm-design.md
+      README: aks-network-validation-linux/README.md · 매니페스트: aks-network-validation-linux/manifests/31-app-pe-egress.yaml
+      https://learn.microsoft.com/azure/aks/private-clusters
+      https://learn.microsoft.com/azure/virtual-machines/linux/run-command
+      https://learn.microsoft.com/azure/aks/istio-deploy-ingress
+
+  - layout: section
+    section_no: "01"
+    title: "네트워크 검증"
+    subtitle: "NSG · Istio 인가 · STRICT mTLS · PE egress 분리 · Private Cluster — T1~T11 · T14~T23"
+    notes: |
+      첫 번째 파트는 네트워크 검증입니다. NSG, Istio 인가와 STRICT mTLS, PE egress 분리, 그리고 Private Cluster까지 허용과 차단이 의도대로 동작하는지 보겠습니다. 모두 22건이고, 차단 테스트에는 허용 대조군이 함께 붙어 있어요.
+
+  - layout: content
+    title: "네트워크 검증 매트릭스 — 22건, 차단 테스트마다 허용 대조군"
+    title_size: 26
+    archetype: comparison-table
+    blocks:
+      - type: table
+        id: matrix
+        box: [40, 98, 1200, 566]
+        size: 11
+        symbols: false
+        first_col_bold: true
+        col_widths: [0.85, 1.3, 2.3, 2.0, 3.7, 0.95]
+        columns: ["ID", "출발", "대상", "기대 결과", "증명하는 규칙 · 구현", "대조군"]
+        rows:
+          - ["T1", "vm-appgw-sim", "10.50.1.10:80 · web-a.test", "200", "NSG 100 Allow + allow-ingress-to-web", "—"]
+          - ["T2·T2c", "vm-other", "LB 10.50.1.10:80 / Blob PE :443", "시간 초과 / 연결 성공", "nsg-aks-app 110 Deny · T2c는 VM 정상 대조군", "T1 · T2c"]
+          - ["T3", "T1 결과 재사용", "—", "Deny가 있어도 200", "snet-ingress NSG는 효과 없음", "T1"]
+          - ["T4·T6", "web-a / web-b", "자기 BFF :8080", "200", "allow-web-to-own-bff (AuthZ + STRICT)", "—"]
+          - ["T5·T7", "web-a / web-b", "남의 BFF :8080 (교차)", "403", "allow-web-to-own-bff", "T6 · T4"]
+          - ["T8", "nomesh / probe", "bff-a :8080", "연결 실패", "STRICT mTLS (사이드카 없음)", "T4"]
+          - ["T9", "web-a", "web-b :8080 (Ingress 우회)", "403", "allow-ingress-to-web (Gateway SA만)", "T1"]
+          - ["T10", "web-a", "Blob PE 10.50.2.4", "TLS 실패", "deny-web-to-data (web 네임스페이스)", "T11"]
+          - ["T11·T17", "bff-b / bff-a", "자기 PE (10.50.2.4 / .5)", "TLS 성공", "allow-bff-b-to-blob / allow-bff-a-to-blob2", "—"]
+          - ["T16·T18", "bff-a / bff-b", "남의 PE (10.50.2.4 / .5)", "TLS 실패", "app-egress-default except 10.50.2.0/24", "T11 · T17"]
+          - ["T19~T21", "bff-b", "CoreDNS · istiod :15021 · mcr", "해석 · 200 · 연결", "기본 egress 유지 (T20은 정책 후 기동 Pod만)", "—"]
+          - ["T22·T23", "bff-b", "자기·다른 노드 :10250", "연결 (≠000)", "기본 egress 유지 (노드)", "probe"]
+          - ["T14", "kubelet", "web·bff readinessProbe", "rewrite 후 Ready", "Istio probe rewrite (STRICT mTLS)", "—"]
+          - ["T15", "vm-mgmt + 로컬", "API 서버 :443", "사설 IP · 로컬 불가", "Private Cluster · 공용 FQDN 끔", "readyz"]
+    notes: |
+      앞 장 그림의 네트워크 경로를 검증 ID 단위로 정리한 표입니다. vm-mgmt 안의 스크립트가 이 순서대로 실행하고, 판정은 Python이 자동으로 PASS, FAIL, INCONCLUSIVE를 매깁니다.
+      위쪽 T1부터 T3까지는 NSG예요. T1은 vm-appgw-sim에서 Ingress LB로 200, T2는 vm-other에서 시간 초과가 나와야 하죠. 그런데 VM이 고장 나도 시간 초과가 나오거든요. 그래서 같은 VM에서 PE로 TLS가 되는지 보는 T2c를 대조군으로 붙였습니다. T4부터 T9까지는 Istio로, 자기 BFF는 200, 남의 BFF와 Ingress 우회는 403, 사이드카 없는 Pod는 연결 실패입니다.
+      표 가운데 T10부터 T21까지가 Linux판에서 바뀐 곳인데요. T10은 web에서 PE로 가는 차단이고요. T11과 T17은 bff마다 자기 전용 PE만 TLS 성공이고, T16과 T18은 남의 PE라 실패가 기대값입니다. 이렇게 막으면 다른 통신까지 끊기지 않을까 걱정되잖아요. 그래서 T19부터 T21까지 CoreDNS, istiod, 인터넷 연결이 그대로인지, T22와 T23으로 노드로 가는 연결도 그대로인지 함께 봅니다.
+      아래쪽 T14는 STRICT mTLS에서 readinessProbe가 살아 있는지, 마지막 T15는 Private Cluster 확인입니다. 스케일링 항목인 T12와 T13은 두 번째 파트에서 따로 다룹니다. 차단 테스트에는 모두 허용 대조군이 있고 대조군이 실패하면 INCONCLUSIVE라는 점, 기억해 주세요. 그럼 실제 결과를 다음 장에서 보겠습니다.
+    source: |
+      설계 문서: docs/superpowers/specs/2026-11-20-aks-network-validation-linux-mgmt-vm-design.md (5.5 테스트 매트릭스)
+      README: aks-network-validation-linux/README.md (테스트 목록)
+      https://istio.io/latest/docs/ops/configuration/traffic-management/protocol-selection/
+
+  - layout: content
+    title: "결과 ① 네트워크 통제 — T1~T11·T14 13건 모두 PASS"
+    title_size: 26
+    archetype: comparison-table
+    blocks:
+      - type: table
+        id: net-result
+        box: [40, 98, 1200, 476]
+        size: 12
+        symbols: false
+        first_col_bold: true
+        col_widths: [0.55, 2.6, 1.4, 1.1, 0.8, 3.2]
+        columns: ["ID", "출발 → 대상", "기대", "실측", "판정", "근거 (실측 기록)"]
+        rows:
+          - ["T1", "vm-appgw-sim → 10.50.1.10:80", "200", "200", "PASS", "NSG 100 Allow · Gateway → web-a"]
+          - ["T2", "vm-other → 10.50.1.10:80", "차단", "000", "PASS", "curl rc=28 (시간 초과) · 대조군 T1·T2c 통과"]
+          - ["T2c", "vm-other → Blob PE :443", "연결 성공", "400", "PASS", "TLS 연결 후 HTTP 400 = 경로 정상"]
+          - ["T3", "vm-appgw-sim (T1 재사용)", "200", "200", "PASS", "nsg-ingress Deny 규칙·서브넷 연결 확인"]
+          - ["T4", "web-a → bff-a", "200", "200", "PASS", "자기 BFF 허용"]
+          - ["T5", "web-a → bff-b", "403", "403", "PASS", "SA principal 불일치 → RBAC 거부"]
+          - ["T6", "web-b → bff-b", "200", "200", "PASS", "자기 BFF 허용"]
+          - ["T7", "web-b → bff-a", "403", "403", "PASS", "SA principal 불일치 → RBAC 거부"]
+          - ["T8", "probe (사이드카 X) → bff-a", "연결 실패", "000", "PASS", "curl rc=56 (연결 리셋) · STRICT mTLS"]
+          - ["T9", "web-a → web-b (우회)", "403", "403", "PASS", "Gateway SA만 허용"]
+          - ["T10", "web-a → Blob PE", "TLS 실패", "000", "PASS", "DNS=10.50.2.4 (PE) · curl rc=28"]
+          - ["T11", "bff-b → Blob PE", "TLS 성공", "400", "PASS", "DNS=10.50.2.4 (PE) · bff-b 전용 PE"]
+          - ["T14", "kubelet → web·bff probe", "Ready", "Ready 4/4", "PASS", "15020 /app-health/app/readyz 로 rewrite 4/4"]
+      - type: callout
+        id: negative
+        box: [40, 590, 1200, 82]
+        text: "실행 위치: vm-mgmt → Private API 경유 kubectl exec · VM curl은 run-command · 표는 network 재실행 결과(전체 실행과 판정 동일)<br>판정 원칙: curl이 실제로 실행됐을 때만 000을 차단으로 인정 · DNS가 기대 PE IP일 때만 T10·T11 판정 · 대조군 실패 시 INCONCLUSIVE"
+    notes: |
+      앞 장 매트릭스를 koreacentral의 Private AKS에 올려서, vm-mgmt 안에서 자동 판정한 표인데요. T1부터 T11까지 대조군 T2c를 포함한 12건과 T14까지 13건이 모두 PASS였습니다. 표는 network 항목만 다시 돌린 재실행 결과이고, 전체 실행과 판정이 같습니다.
+      먼저 NSG를 보면, T1은 vm-appgw-sim에서 내부 LB로 200이 나왔고, T2는 vm-other에서 curl 종료 코드 28, 그러니까 시간 초과로 막혔습니다. 같은 VM에서 Blob PE로 TLS 연결이 되는 T2c가 통과했으니까, 이 차단이 VM 고장이 아니라 NSG 때문이라고 말할 수 있죠. T3는 snet-ingress에 Deny가 있는데도 200이라서, LB IP 서브넷 NSG는 효과가 없다는 게 다시 확인됐습니다.
+      Istio 쪽은 자기 BFF가 200, 교차 호출과 우회 호출이 403이었고, 사이드카 없는 probe는 종료 코드 56, 연결 리셋으로 끊겼습니다.
+      T10과 T11은 같이 보셔야 하는데요. 두 Pod 모두 Blob 이름이 PE IP 10.50.2.4로 해석된 걸 먼저 확인했어요. 그다음 web-a에서는 TLS가 실패, bff-b에서는 성공했습니다. Linux판에서는 이 PE가 bff-b 전용이라 출발지가 bff-b로 바뀌었어요. T14는 STRICT mTLS에서도 probe가 15020 포트로 rewrite되어 네 개 모두 Ready였습니다. 그럼 PE를 bff별로 나눈 결과를 다음 장에서 자세히 보겠습니다.
+    source: |
+      결과 파일: aks-network-validation-linux/results/20261120-052231.md (network 재실행), 20261120-050457.md (전체 실행)
+      curl 종료 코드 28 = 시간 초과, 56 = 수신 실패(연결 리셋)
+      https://istio.io/latest/docs/ops/configuration/mesh/app-health-check/
+      https://learn.microsoft.com/azure/aks/private-clusters
+
+  - layout: content
+    title: "PE egress 분리 — bff별 전용 PE만 허용, 기본 egress 유지"
+    title_size: 26
+    archetype: comparison
+    blocks:
+      - type: shapes
+        id: pe-egress
+        box: [30, 98, 1220, 572]
+        items:
+          - {kind: round, name: l-frame, x: 0, y: 0, w: 790, h: 570, fill: "FFFFFF", line: "008577", dash: true, radius: 6}
+          - {kind: text, name: l-title, x: 15, y: 10, w: 760, h: 26, text: "① app 네임스페이스 egress (T16~T23) — 허용 규칙의 합집합", size: 15, bold: true, color: "006B5C", align: left}
+          - {kind: round, name: p1, x: 15, y: 44, w: 290, h: 104, fill: "F7F7F7", line: "A6A6A6", radius: 4}
+          - {kind: text, name: p1-t, x: 25, y: 48, w: 270, h: 22, text: "app-egress-default", size: 12, bold: true, color: "171717", align: left}
+          - {kind: text, name: p1-b, x: 25, y: 70, w: 270, h: 74, text: "대상: app 전체 Pod\n내부: namespaceSelector {}\n외부: 0.0.0.0/0 except 10.50.2.0/24", size: 11, color: "444444", align: left}
+          - {kind: round, name: p2, x: 317, y: 44, w: 223, h: 104, fill: "F7F7F7", line: "A6A6A6", radius: 4}
+          - {kind: text, name: p2-t, x: 327, y: 48, w: 203, h: 22, text: "allow-bff-b-to-blob", size: 12, bold: true, color: "171717", align: left}
+          - {kind: text, name: p2-b, x: 327, y: 70, w: 203, h: 74, text: "대상: app=bff-b\n허용: 10.50.2.4/32\nTCP 443", size: 11, color: "444444", align: left}
+          - {kind: round, name: p3, x: 552, y: 44, w: 223, h: 104, fill: "F7F7F7", line: "A6A6A6", radius: 4}
+          - {kind: text, name: p3-t, x: 562, y: 48, w: 203, h: 22, text: "allow-bff-a-to-blob2", size: 12, bold: true, color: "171717", align: left}
+          - {kind: text, name: p3-b, x: 562, y: 70, w: 203, h: 74, text: "대상: app=bff-a\n허용: 10.50.2.5/32\nTCP 443", size: 11, color: "444444", align: left}
+          - {kind: text, name: union, x: 15, y: 156, w: 760, h: 40, text: "표준 NetworkPolicy는 허용의 합집합 → 공통 정책에서 PE 서브넷만 빼고, Pod별로 자기 PE IP /32만 다시 허용\nPE는 고정 IP로 생성 · DNS가 기대 PE IP로 해석될 때만 판정 (다르면 INCONCLUSIVE)", size: 11, color: "444444", align: left}
+
+          - {kind: text, name: g-h1, x: 175, y: 206, w: 295, h: 24, text: "Blob PE 10.50.2.4", size: 12, bold: true, color: "171717"}
+          - {kind: text, name: g-h2, x: 480, y: 206, w: 295, h: 24, text: "Blob2 PE 10.50.2.5", size: 12, bold: true, color: "171717"}
+          - {kind: text, name: g-r1, x: 15, y: 238, w: 150, h: 38, text: "app / bff-a", size: 12, bold: true, color: "171717", align: left}
+          - {kind: round, name: c11, x: 175, y: 236, w: 295, h: 42, fill: "FDECEA", line: "C62828", radius: 4}
+          - {kind: text, name: c11-t, x: 175, y: 238, w: 295, h: 38, text: "✕ T16 차단 · 000 (rc=28) · PASS", size: 11, bold: true, color: "C62828"}
+          - {kind: round, name: c12, x: 480, y: 236, w: 295, h: 42, fill: "EAF6EC", line: "2E7D32", radius: 4}
+          - {kind: text, name: c12-t, x: 480, y: 238, w: 295, h: 38, text: "T17 허용 · 400 (TLS 성공) · PASS", size: 11, bold: true, color: "2E7D32"}
+          - {kind: text, name: g-r2, x: 15, y: 288, w: 150, h: 38, text: "app / bff-b", size: 12, bold: true, color: "171717", align: left}
+          - {kind: round, name: c21, x: 175, y: 286, w: 295, h: 42, fill: "EAF6EC", line: "2E7D32", radius: 4}
+          - {kind: text, name: c21-t, x: 175, y: 288, w: 295, h: 38, text: "T11 허용 · 400 (TLS 성공) · PASS", size: 11, bold: true, color: "2E7D32"}
+          - {kind: round, name: c22, x: 480, y: 286, w: 295, h: 42, fill: "FDECEA", line: "C62828", radius: 4}
+          - {kind: text, name: c22-t, x: 480, y: 288, w: 295, h: 38, text: "✕ T18 차단 · 000 (rc=28) · PASS", size: 11, bold: true, color: "C62828"}
+          - {kind: text, name: g-r3, x: 15, y: 338, w: 150, h: 38, text: "web / web-a", size: 12, bold: true, color: "171717", align: left}
+          - {kind: round, name: c31, x: 175, y: 336, w: 295, h: 42, fill: "FDECEA", line: "C62828", radius: 4}
+          - {kind: text, name: c31-t, x: 175, y: 338, w: 295, h: 38, text: "✕ T10 차단 · 000 (rc=28) · PASS", size: 11, bold: true, color: "C62828"}
+          - {kind: text, name: c32-t, x: 480, y: 338, w: 295, h: 38, text: "web은 PE 대역 전체 차단 (deny-web-to-data)", size: 11, color: "666666"}
+
+          - {kind: text, name: d-title, x: 15, y: 392, w: 760, h: 22, text: "기본 egress 유지 — bff-b 기준, 모두 PASS (노드는 ④ CNP 보완 후)", size: 12, bold: true, color: "171717", align: left}
+          - {kind: round, name: d1, x: 15, y: 418, w: 182, h: 56, fill: "EAF6EC", line: "2E7D32", radius: 4}
+          - {kind: text, name: d1-t, x: 15, y: 420, w: 182, h: 52, text: "T19 CoreDNS\n해석 → 10.0.0.1", size: 11, bold: true, color: "171717"}
+          - {kind: round, name: d2, x: 208, y: 418, w: 182, h: 56, fill: "EAF6EC", line: "2E7D32", radius: 4}
+          - {kind: text, name: d2-t, x: 208, y: 420, w: 182, h: 52, text: "T20 istiod xDS\n:15021 ready → 200", size: 11, bold: true, color: "171717"}
+          - {kind: round, name: d3, x: 401, y: 418, w: 182, h: 56, fill: "EAF6EC", line: "2E7D32", radius: 4}
+          - {kind: text, name: d3-t, x: 401, y: 420, w: 182, h: 52, text: "T21 인터넷\nmcr :443 → 200", size: 11, bold: true, color: "171717"}
+          - {kind: round, name: d4, x: 594, y: 418, w: 181, h: 56, fill: "EAF6EC", line: "2E7D32", radius: 4}
+          - {kind: text, name: d4-t, x: 594, y: 420, w: 181, h: 52, text: "T22·T23 노드\nkubelet :10250 → 401", size: 11, bold: true, color: "171717"}
+          - {kind: round, name: t20-note, x: 15, y: 486, w: 760, h: 72, fill: "FFF4E5", line: "FF8C00", radius: 4}
+          - {kind: text, name: t20-note-t, x: 25, y: 490, w: 740, h: 64, text: "T22·T23 발견: ①의 ipBlock 0.0.0.0/0만으로는 노드 IP가 000 (대조군 probe 401)\nCilium 기본값에서 ipBlock은 Pod·노드 IP에 매칭 안 됨 · ipBlock 10.50.4.0/24 추가도 000\n보완: ④ CNP toEntities [host, remote-node] → 401 · T20은 정책 이후 기동 Pod만 인정", size: 11, color: "171717", align: left}
+
+          - {kind: round, name: r-frame, x: 810, y: 0, w: 410, h: 570, fill: "FFFFFF", line: "1F4E79", dash: true, radius: 6}
+          - {kind: text, name: r-title, x: 825, y: 10, w: 380, h: 26, text: "② T15 API 서버 비공개 — PASS", size: 15, bold: true, color: "1F4E79", align: left}
+          - {kind: text, name: r-cfg, x: 825, y: 44, w: 380, h: 40, text: "enablePrivateCluster = true\nenablePrivateClusterPublicFqdn = false", size: 11, color: "444444", align: left}
+          - {kind: round, name: r-mgmt, x: 825, y: 98, w: 180, h: 50, fill: "EEF3FB", line: "1F4E79", radius: 4}
+          - {kind: text, name: r-mgmt-t, x: 825, y: 100, w: 180, h: 46, text: "vm-mgmt\n(snet-mgmt)", size: 11, bold: true, color: "171717"}
+          - {kind: round, name: r-local, x: 1025, y: 98, w: 180, h: 50, fill: "F3F4F6", line: "A6A6A6", radius: 4}
+          - {kind: text, name: r-local-t, x: 1025, y: 100, w: 180, h: 46, text: "로컬 (VNet 밖)\nWSL · Cloud Shell", size: 11, bold: true, color: "171717"}
+          - {kind: arrow, name: r-a1, x: 915, y: 148, x2: 915, y2: 222, line: "2E7D32", line_w: 2}
+          - {kind: text, name: r-a1-l, x: 921, y: 162, w: 100, h: 44, text: "사설 IP 해석\nreadyz = ok", size: 11, bold: true, color: "2E7D32", align: left}
+          - {kind: arrow, name: r-a2, x: 1100, y: 148, x2: 1100, y2: 222, line: "C62828", line_w: 2, dash: true}
+          - {kind: text, name: r-a2-l, x: 1106, y: 162, w: 100, h: 44, text: "✕ NXDOMAIN\n접속 불가", size: 11, bold: true, color: "C62828", align: left}
+          - {kind: round, name: r-api, x: 825, y: 222, w: 380, h: 54, fill: "EEF3FB", line: "1F4E79", radius: 4}
+          - {kind: text, name: r-api-t, x: 825, y: 224, w: 380, h: 50, text: "API 서버 :443 · 사설 IP 10.50.4.4\nsnet-aks-app (10.50.4.0/22) 안 · privatelink DNS", size: 11, bold: true, color: "1F4E79"}
+          - {kind: round, name: r-box, x: 825, y: 292, w: 380, h: 266, fill: "EAF6EC", line: "2E7D32", radius: 4}
+          - {kind: text, name: r-box-t, x: 835, y: 298, w: 360, h: 254, text: "실측: private=True · publicFqdn=False\nvm-mgmt 해석 10.50.4.4 · /readyz = ok\n로컬 = NXDOMAIN / 접속 실패\n\n판정 순서\nFAIL: 비공개 아님 · 공용 FQDN 켜짐 ·\n사설 IP가 snet-aks-app 밖\nINCONCLUSIVE: 대조군 readyz 실패 ·\n로컬 접속 성공 (VPN·피어링)\nPASS: 나머지 조건 모두 기대대로\n\n로컬 확인은 verify 뒤 run.sh가 수행해 합침", size: 11, color: "171717", align: left, valign: top}
+    notes: |
+      앞 장 마지막에 T11의 출발지가 bff-b로 바뀌었다고 말씀드렸는데요, 이번 장이 그 이유입니다. Linux판에서 새로 넣은 통제가 두 가지인데, 왼쪽이 PE egress 분리, 오른쪽이 API 서버 비공개입니다.
+      왼쪽 위 정책 세 개부터 볼게요. 표준 NetworkPolicy는 허용 규칙의 합집합이라서, Pod에 정책이 하나라도 걸리면 어느 정책이든 허용한 곳만 나갈 수 있거든요. 그래서 공통 정책 app-egress-default는 클러스터 내부와 0.0.0.0/0을 열되 PE 서브넷 10.50.2.0/24만 뺐어요. 그리고 bff-b에는 10.50.2.4/32, bff-a에는 10.50.2.5/32의 443만 다시 열었습니다.
+      가운데 격자가 결과입니다. bff-a는 Blob2만, bff-b는 Blob만 TLS가 성공했고, 서로 바뀐 T16과 T18은 종료 코드 28로 막혔습니다. 막는 바람에 다른 통신이 끊기면 안 되잖아요. 그래서 아래 T19부터 T21까지 CoreDNS 해석, istiod 15021 ready, 인터넷 mcr 연결이 모두 정상인 걸 확인했습니다. 다만 T20은 Pod가 정책보다 먼저 떠 있었다면 근거가 안 돼서, 정책 이후 기동한 경우만 인정합니다.
+      그런데 노드로 가는 T22, T23에서 하나 발견했어요. 0.0.0.0/0을 열었는데도 bff-b에서 노드 kubelet으로는 000이 나왔습니다. 정책이 없는 probe는 401로 붙었으니 정책 때문인 거죠. Cilium은 기본값에서 ipBlock을 Pod나 노드 IP에 매칭하지 않거든요. 노드 대역을 ipBlock으로 더해도 그대로였고, CiliumNetworkPolicy로 host와 remote-node 엔터티를 열자 401로 붙었습니다. 그래서 네 번째 정책으로 넣었어요.
+      오른쪽 T15는 vm-mgmt에서는 API 서버가 사설 IP 10.50.4.4로 해석되고 readyz가 ok, 로컬에서는 NXDOMAIN이라 PASS입니다. 그럼 네트워크 결과를 PRD 관점으로 정리해 보겠습니다.
+    source: |
+      매니페스트: aks-network-validation-linux/manifests/31-app-pe-egress.yaml
+      결과 파일: aks-network-validation-linux/results/20261120-082121.md (CNP 보완 후 22 PASS), 20261120-075659.md (T22·T23 FAIL)
+      https://docs.cilium.io/en/stable/network/kubernetes/policy/
+      https://kubernetes.io/docs/concepts/services-networking/network-policies/
+      https://learn.microsoft.com/azure/aks/use-network-policies
+      https://learn.microsoft.com/azure/aks/private-clusters
+
+  - layout: content
+    title: "네트워크 결과 정리 — 22 PASS, PRD 시사점과 남은 한계"
+    title_size: 26
+    archetype: comparison-table
+    blocks:
+      - type: table
+        id: takeaways
+        box: [40, 98, 1200, 330]
+        size: 11
+        symbols: false
+        first_col_bold: true
+        col_widths: [1.6, 3.6, 3.4]
+        columns: ["통제", "확인된 사실 (근거)", "PRD 설계 시사점"]
+        rows:
+          - ["NSG", "LB IP 서브넷 NSG는 효과 없음, 노드 서브넷 NSG가 차단 (T1~T3)", "허용·차단 규칙은 노드 서브넷 NSG에 둠"]
+          - ["AuthorizationPolicy", "SA principal 기준으로 교차·우회 호출 403 (T5·T7·T9)", "web↔bff 1:1 정책과 Gateway SA 제한 그대로 사용"]
+          - ["STRICT mTLS", "사이드카 없는 Pod는 연결 리셋 (T8)", "비메시 워크로드는 별도 예외 설계 필요"]
+          - ["PE egress 분리", "bff별 자기 PE만 TLS 성공, 교차 000 (T10·T11·T16~T18)", "공통 정책에서 PE 대역 제외 + Pod별 /32 허용"]
+          - ["기본 egress", "CoreDNS·istiod·인터넷 정상 (T19~T21)", "PE 분리 정책이 다른 통신을 끊지 않음"]
+          - ["노드 egress", "ipBlock 0.0.0.0/0으론 노드 000, CNP 보완 후 401 (T22·T23)", "Cilium에선 노드 egress를 host·remote-node로 명시"]
+          - ["Private Cluster", "API 서버 10.50.4.4만, 로컬 NXDOMAIN (T15)", "운영은 VNet 안 관리 VM에서 run-command로"]
+          - ["readinessProbe", "STRICT mTLS에서도 15020 rewrite로 Ready 4/4 (T14)", "probe 추가 시 별도 mTLS 예외 불필요"]
+      - type: callout
+        id: limits
+        box: [40, 460, 1200, 110]
+        text: "네트워크 22건 PASS (T1~T11 · T14~T23) · T1~T11 · T14는 PowerShell판과 같은 결론<br>확인됨: Cilium 기본값에서 ipBlock은 노드 IP 미매칭 → 노드 egress는 CNP toEntities [host, remote-node]로 허용<br>검증 범위: 기능 검증 (성능 아님) · HTTP 80만 사용"
+    notes: |
+      네트워크 파트를 PRD 설계 관점으로 한 표에 모았습니다. 네트워크는 22건 모두 PASS예요.
+      위쪽 세 줄은 PowerShell판과 같습니다. 허용과 차단은 노드 서브넷 NSG에서 걸리고, 서비스 계정 기준 인가로 교차와 우회 호출이 403, 사이드카 없는 Pod는 연결이 끊깁니다. 그다음 세 줄이 Linux판에서 새로 확인한 부분인데요. 공통 정책에서 PE 대역을 빼고 Pod별 /32만 다시 열어서 bff마다 자기 PE만 쓰게 만들 수 있었고, CoreDNS, istiod, 인터넷은 끊기지 않았습니다. 다만 노드로 가는 통신은 표준 정책만으로는 막혀서 CiliumNetworkPolicy로 명시해야 했어요. Private Cluster는 운영을 VNet 안 관리 VM에서 하는 형태가 그대로 동작했고, probe는 STRICT mTLS에서도 따로 예외가 필요 없었습니다.
+      아래 상자도 같이 봐 주세요. 이번 검증은 기능 검증이고, 모든 호출을 HTTP 80으로 했습니다. 그럼 두 번째 파트, 스케일링 검증으로 넘어가겠습니다.
+    source: |
+      README: aks-network-validation-linux/README.md (최신 결과 26 PASS + T12b INFO)
+      설계 문서: docs/superpowers/specs/2026-11-20-aks-network-validation-linux-mgmt-vm-design.md
+      https://learn.microsoft.com/azure/aks/azure-cni-powered-by-cilium
+      https://kubernetes.io/docs/concepts/services-networking/network-policies/
+
+  - layout: section
+    section_no: "02"
+    title: "스케일링 검증"
+    subtitle: "HPA 축소 속도 · CAS 영역 균형 · PRD 권장 강제 분산 — T12~T13b"
+    notes: |
+      두 번째 파트는 스케일링 검증입니다. HPA가 정해진 속도로만 줄어드는지, CAS가 세 영역을 고르게 늘리는지, 그리고 PRD 권장 YAML의 강제 분산이 CAS와 함께 동작하는지 보겠습니다. 모두 다섯 항목이고, 그중 T12b는 기록용 INFO예요.
+
+  - layout: content
+    title: "스케일링 검증 매트릭스 — T12~T13b, 판정 규칙"
+    title_size: 26
+    archetype: comparison-table
+    blocks:
+      - type: table
+        id: scale-matrix
+        box: [40, 98, 1200, 230]
+        size: 13
+        symbols: false
+        first_col_bold: true
+        col_widths: [0.7, 1.4, 2.2, 2.0, 3.4, 0.9]
+        columns: ["ID", "워크로드", "조작", "기대 결과", "증명하는 규칙 · 구현", "판정"]
+        rows:
+          - ["T12", "hpa-demo", "minReplicas 5 → 2 패치", "5→4→3→2 · 간격 ≥55초", "behavior.scaleDown Pods 1 / 60초", "PASS"]
+          - ["T12b", "hpa-demo", "5 → 2 축소 뒤 영역 분포", "기록만", "분산 제약은 축소 때 적용되지 않음", "INFO"]
+          - ["T12c", "hpa-demo", "5·9·12개 → 3 · 각 2회", "삭제 Pod = ReplicaSet 규칙 예측", "축소 대상 Pod 선택 규칙", "PASS"]
+          - ["T13", "zone-fill", "6개 · CPU 800m · 노드 1/1/1", "영역별 노드 차이 ≤1", "balance-similar-node-groups=true", "PASS"]
+          - ["T13b", "zone-spread", "6개 · 강제 분산 · 노드 1/1/1", "Pod 2/2/2 · Pending 0", "DoNotSchedule · minDomains 3 · taint Honor", "PASS"]
+      - type: callout
+        id: scale-rule
+        box: [40, 350, 1200, 128]
+        text: "실행: vm-mgmt에서 kubectl · 5초 간격으로 replicas·Pod 위치 기록 · 항목당 제한 15분<br>FAIL: 15분 안에 Pending이 남음 · 한 번에 2개 이상 감소 · 감소 간격 55초 미만 · 규칙 예측 밖 Pod 삭제(T12c)<br>INFO: 공식 보장이 아닌 동작은 판정하지 않고 기록만 (T12b)"
+    notes: |
+      방금 스케일링 파트를 열었는데요, 이 장은 그 검증 항목과 판정 규칙입니다. 네트워크와 달리 시간이 오래 걸리고, 결과가 시점에 따라 달라질 수 있어서 판정 규칙을 먼저 짚고 가겠습니다.
+      T12는 HPA가 1분에 1개씩만 줄어드는지, T12b는 줄어든 뒤 영역 분포를 기록하고, T12c는 축소 때 실제로 지워진 Pod가 ReplicaSet 삭제 규칙으로 예측한 Pod와 같은지 판정해요. T12b는 Pod 2개라 한 영역이 비는 게 당연해서 기록용 INFO입니다. T13은 CAS가 세 영역을 고르게 늘리는지, T13b는 PRD 권장 강제 분산을 넣어도 CAS와 함께 동작하는지입니다.
+      아래 상자처럼 vm-mgmt에서 5초 간격으로 기록하고, 15분 안에 Pending이 남거나 감소 폭과 간격이 어긋나면 FAIL입니다. 예를 들어 HPA가 한 번에 2개를 줄이거나 50초 만에 다음 축소가 나오면 behavior 정책이 안 먹은 거라 FAIL로 처리하죠. 반대로 공식 문서가 보장하지 않는 축소 순서 같은 동작은 PASS, FAIL을 매기지 않고 기록만 남깁니다. 표의 마지막 열이 그 구분이에요. 그럼 T12와 T13 설계를 다음 장에서 그림으로 보겠습니다.
+    source: |
+      설계 문서: docs/superpowers/specs/2026-11-20-aks-network-validation-linux-mgmt-vm-design.md (5.5 테스트 매트릭스)
+      https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraint/
+
+  - layout: content
+    title: "스케일링 검증 — HPA 축소 속도와 영역 균형"
+    title_size: 26
+    archetype: timings
+    blocks:
+      - type: shapes
+        id: scaling
+        box: [30, 98, 1220, 572]
+        items:
+          - {kind: round, name: hpa-frame, x: 0, y: 0, w: 595, h: 570, fill: "FFFFFF", line: "5578FF", dash: true, radius: 6}
+          - {kind: text, name: hpa-title, x: 15, y: 10, w: 565, h: 26, text: "① HPA 축소 속도 (T12) — hpa-demo", size: 15, bold: true, color: "1F4E79", align: left}
+          - {kind: round, name: hpa-cfg, x: 15, y: 44, w: 565, h: 66, fill: "F3F4F6", line: "A6A6A6", radius: 4}
+          - {kind: text, name: hpa-cfg-text, x: 25, y: 48, w: 545, h: 58, text: "min 5 · max 5로 시작 → minReplicas를 2로 패치 · CPU requests 100m\nbehavior.scaleDown.policies: [{type: Pods, value: 1, periodSeconds: 60}]", size: 11, color: "171717", align: left}
+          - {kind: rect, name: bar5, x: 60, y: 165, w: 90, h: 225, fill: "0F6CBD", line: "0F6CBD", text: "5", size: 16, bold: true, color: "FFFFFF", valign: top}
+          - {kind: rect, name: bar4, x: 190, y: 210, w: 90, h: 180, fill: "0F6CBD", line: "0F6CBD", text: "4", size: 16, bold: true, color: "FFFFFF", valign: top}
+          - {kind: rect, name: bar3, x: 320, y: 255, w: 90, h: 135, fill: "0F6CBD", line: "0F6CBD", text: "3", size: 16, bold: true, color: "FFFFFF", valign: top}
+          - {kind: rect, name: bar2, x: 450, y: 300, w: 90, h: 90, fill: "2E7D32", line: "2E7D32", text: "2", size: 16, bold: true, color: "FFFFFF", valign: top}
+          - {kind: text, name: min-label, x: 40, y: 130, w: 200, h: 20, text: "Pod 수 (spec.replicas)", size: 11, color: "666666", align: left}
+          - {kind: text, name: min-line-label, x: 445, y: 276, w: 120, h: 20, text: "minReplicas 2", size: 11, bold: true, color: "2E7D32"}
+          - {kind: text, name: x1, x: 45, y: 396, w: 120, h: 36, text: "패치 직후\n첫 축소", size: 11, color: "444444"}
+          - {kind: text, name: x2, x: 175, y: 396, w: 120, h: 36, text: "+≥55초", size: 11, color: "444444"}
+          - {kind: text, name: x3, x: 305, y: 396, w: 120, h: 36, text: "+≥55초", size: 11, color: "444444"}
+          - {kind: text, name: x4, x: 435, y: 396, w: 120, h: 36, text: "+≥55초", size: 11, color: "444444"}
+          - {kind: round, name: hpa-pass, x: 15, y: 445, w: 565, h: 112, fill: "EAF6EC", line: "2E7D32", radius: 4}
+          - {kind: text, name: hpa-pass-text, x: 25, y: 450, w: 545, h: 102, text: "PASS: 5→4→3→2 순서로 1씩만 감소 + 감소 간격 모두 ≥55초\n기록: 5초 간격으로 spec.replicas와 시각 · 제한 15분\n범위 밖: 안정화 창(300초) — 패치 직후 축소가 시작될 수 있음\nPDB는 HPA 축소에 적용되지 않음 (드레인 전용)", size: 11, color: "171717", align: left}
+
+          - {kind: round, name: zone-frame, x: 625, y: 0, w: 595, h: 570, fill: "FFFFFF", line: "008577", dash: true, radius: 6}
+          - {kind: text, name: zone-title, x: 640, y: 10, w: 565, h: 26, text: "② 영역 균형 (T13) — balance-similar-node-groups=true", size: 15, bold: true, color: "006B5C", align: left}
+          - {kind: round, name: z1, x: 645, y: 50, w: 175, h: 270, fill: "F7F7F7", line: "A6A6A6", radius: 5}
+          - {kind: text, name: z1-t, x: 645, y: 56, w: 175, h: 40, text: "영역 1\nuserz1", size: 12, bold: true, color: "171717"}
+          - {kind: round, name: z2, x: 838, y: 50, w: 175, h: 270, fill: "F7F7F7", line: "A6A6A6", radius: 5}
+          - {kind: text, name: z2-t, x: 838, y: 56, w: 175, h: 40, text: "영역 2\nuserz2", size: 12, bold: true, color: "171717"}
+          - {kind: round, name: z3, x: 1031, y: 50, w: 175, h: 270, fill: "F7F7F7", line: "A6A6A6", radius: 5}
+          - {kind: text, name: z3-t, x: 1031, y: 56, w: 175, h: 40, text: "영역 3\nuserz3", size: 12, bold: true, color: "171717"}
+          - {kind: round, name: z1-n1, x: 660, y: 108, w: 145, h: 54, fill: "FFFFFF", line: "5578FF", radius: 4}
+          - {kind: text, name: z1-n1-t, x: 660, y: 110, w: 145, h: 50, text: "노드 (기존 1)", size: 11, color: "171717"}
+          - {kind: round, name: z1-n2, x: 660, y: 176, w: 145, h: 54, fill: "EAF6EC", line: "2E7D32", dash: true, radius: 4}
+          - {kind: text, name: z1-n2-t, x: 660, y: 178, w: 145, h: 50, text: "노드 (+1 확장)", size: 11, bold: true, color: "2E7D32"}
+          - {kind: round, name: z2-n1, x: 853, y: 108, w: 145, h: 54, fill: "FFFFFF", line: "5578FF", radius: 4}
+          - {kind: text, name: z2-n1-t, x: 853, y: 110, w: 145, h: 50, text: "노드 (기존 1)", size: 11, color: "171717"}
+          - {kind: round, name: z2-n2, x: 853, y: 176, w: 145, h: 54, fill: "EAF6EC", line: "2E7D32", dash: true, radius: 4}
+          - {kind: text, name: z2-n2-t, x: 853, y: 178, w: 145, h: 50, text: "노드 (+1 확장)", size: 11, bold: true, color: "2E7D32"}
+          - {kind: round, name: z3-n1, x: 1046, y: 108, w: 145, h: 54, fill: "FFFFFF", line: "5578FF", radius: 4}
+          - {kind: text, name: z3-n1-t, x: 1046, y: 110, w: 145, h: 50, text: "노드 (기존 1)", size: 11, color: "171717"}
+          - {kind: round, name: z3-n2, x: 1046, y: 176, w: 145, h: 54, fill: "EAF6EC", line: "2E7D32", dash: true, radius: 4}
+          - {kind: text, name: z3-n2-t, x: 1046, y: 178, w: 145, h: 50, text: "노드 (+1 확장)", size: 11, bold: true, color: "2E7D32"}
+          - {kind: text, name: z1-max, x: 660, y: 248, w: 145, h: 60, text: "범위 1~3대\n확장 후 2대", size: 11, color: "666666"}
+          - {kind: text, name: z2-max, x: 853, y: 248, w: 145, h: 60, text: "범위 1~3대\n확장 후 2대", size: 11, color: "666666"}
+          - {kind: text, name: z3-max, x: 1046, y: 248, w: 145, h: 60, text: "범위 1~3대\n확장 후 2대", size: 11, color: "666666"}
+          - {kind: text, name: zone-how, x: 645, y: 335, w: 560, h: 96, text: "zone-fill: CPU requests 800m (노드 1대에 Pod 1개), 사용자 풀에만 배치\n분산 제약(topologySpread)을 일부러 넣지 않음 → CAS 설정 효과만 확인\n세 풀은 VM 크기·레이블·taint 동일 · system 풀은 별도", size: 11, color: "444444", align: left}
+          - {kind: round, name: zone-pass, x: 645, y: 445, w: 560, h: 112, fill: "EAF6EC", line: "2E7D32", radius: 4}
+          - {kind: text, name: zone-pass-text, x: 655, y: 450, w: 540, h: 102, text: "PASS: 모든 Pod Running 후 영역별 사용자 노드 수 최대−최소 ≤ 1\nFAIL: 15분 내 Pending이 남음 (DSv5 22 vCPU 할당량 확인)\n관찰만: zone-fill 0 → CAS 축소 시 영역 분포 (공식 보장 아님)\n판정 규칙은 PowerShell판과 동일 · 실행 위치만 vm-mgmt", size: 11, color: "171717", align: left}
+    notes: |
+      앞 장 표의 T12와 T13을 그림으로 풀어 본 장표입니다. 판정 규칙은 PowerShell판과 똑같고, 실행 위치만 vm-mgmt로 바뀌었어요.
+      왼쪽 HPA부터 보겠습니다. hpa-demo를 최소 5, 최대 5로 띄워 두고 minReplicas를 2로 패치합니다. 부하가 없으니 HPA는 2개까지 줄이려 하는데, behavior에 Pods 1개, 60초 정책을 걸어 뒀기 때문에 한 번에 1개씩만 줄어야 하거든요. 그래서 막대가 5, 4, 3, 2로 내려가고 간격이 모두 55초 이상이면 PASS입니다. 스크립트는 5초 간격으로 replicas와 시각을 기록합니다.
+      여기서 주의할 점이 두 가지 있어요. 안정화 창 300초는 이번 범위가 아니라서, 패치 직후에 바로 축소가 시작될 수 있습니다. 그리고 PDB는 HPA 축소에 적용되지 않고 드레인 같은 eviction에만 동작하죠.
+      오른쪽은 영역 균형입니다. 영역 1, 2, 3에 사용자 풀을 하나씩 두고 각각 1대에서 3대로 오토스케일합니다. zone-fill Pod는 하나가 노드 한 대를 차지하도록 800m를 잡고, 분산 제약은 일부러 뺐습니다. 그래야 스케줄러가 아니라 CAS의 balance-similar-node-groups 효과만 볼 수 있으니까요. 영역별 노드 차이가 1 이하면 PASS이고, 축소할 때 분포는 공식 보장이 아니라서 관찰만 합니다. 여기까지가 설계였고요, 다음 장에서 Private AKS에서 실제로 돌린 결과를 보겠습니다.
+    source: |
+      설계 문서: docs/superpowers/specs/2026-11-20-aks-network-validation-linux-mgmt-vm-design.md (5.5 T1~T14 판정 규칙 유지)
+      https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/#configurable-scaling-behavior
+      https://learn.microsoft.com/azure/aks/cluster-autoscaler
+
+  - layout: content
+    title: "결과 ② 스케일링 — HPA 1분에 1개 축소, 영역 2/2/2 확장"
+    title_size: 26
+    archetype: timings
+    blocks:
+      - type: shapes
+        id: scaling-result
+        box: [30, 98, 1220, 572]
+        items:
+          - {kind: round, name: r-hpa-frame, x: 0, y: 0, w: 595, h: 570, fill: "FFFFFF", line: "5578FF", dash: true, radius: 6}
+          - {kind: text, name: r-hpa-title, x: 15, y: 10, w: 565, h: 26, text: "① T12 HPA 축소 — PASS", size: 15, bold: true, color: "1F4E79", align: left}
+          - {kind: text, name: r-hpa-axis, x: 40, y: 50, w: 300, h: 20, text: "Pod 수 (spec.replicas) · 5초 간격 표본 27개", size: 11, color: "666666", align: left}
+          - {kind: rect, name: r-bar5, x: 60, y: 120, w: 90, h: 225, fill: "0F6CBD", line: "0F6CBD", text: "5", size: 16, bold: true, color: "FFFFFF", valign: top}
+          - {kind: rect, name: r-bar4, x: 190, y: 165, w: 90, h: 180, fill: "0F6CBD", line: "0F6CBD", text: "4", size: 16, bold: true, color: "FFFFFF", valign: top}
+          - {kind: rect, name: r-bar3, x: 320, y: 210, w: 90, h: 135, fill: "0F6CBD", line: "0F6CBD", text: "3", size: 16, bold: true, color: "FFFFFF", valign: top}
+          - {kind: rect, name: r-bar2, x: 450, y: 255, w: 90, h: 90, fill: "2E7D32", line: "2E7D32", text: "2", size: 16, bold: true, color: "FFFFFF", valign: top}
+          - {kind: text, name: r-x1, x: 45, y: 352, w: 120, h: 36, text: "패치 시점", size: 11, color: "444444"}
+          - {kind: text, name: r-x2, x: 175, y: 352, w: 120, h: 36, text: "+10초", size: 12, bold: true, color: "A65300"}
+          - {kind: text, name: r-x3, x: 305, y: 352, w: 120, h: 36, text: "+61초", size: 12, bold: true, color: "2E7D32"}
+          - {kind: text, name: r-x4, x: 435, y: 352, w: 120, h: 36, text: "+62초", size: 12, bold: true, color: "2E7D32"}
+          - {kind: round, name: r-hpa-box, x: 15, y: 420, w: 565, h: 120, fill: "EAF6EC", line: "2E7D32", radius: 4}
+          - {kind: text, name: r-hpa-box-t, x: 25, y: 426, w: 545, h: 108, text: "순서 5→4→3→2, 1개씩만 감소 · 간격 61초, 62초 (기준 ≥55초)\nscaleDown Pods 1 / 60s 정책이 의도대로 동작\n패치→첫 감소 10초는 판정 외 기록\n→ 안정화 창(300초) 동작의 근거로는 쓰지 않음", size: 11, color: "171717", align: left}
+
+          - {kind: round, name: r-zone-frame, x: 625, y: 0, w: 595, h: 570, fill: "FFFFFF", line: "008577", dash: true, radius: 6}
+          - {kind: text, name: r-zone-title, x: 640, y: 10, w: 565, h: 26, text: "② T13 영역 균형 — PASS (차이 0)", size: 15, bold: true, color: "006B5C", align: left}
+          - {kind: round, name: rz1, x: 645, y: 50, w: 175, h: 190, fill: "F7F7F7", line: "A6A6A6", radius: 5}
+          - {kind: text, name: rz1-t, x: 645, y: 56, w: 175, h: 40, text: "영역 1 · userz1\n1 → 2대", size: 12, bold: true, color: "171717"}
+          - {kind: round, name: rz2, x: 838, y: 50, w: 175, h: 190, fill: "F7F7F7", line: "A6A6A6", radius: 5}
+          - {kind: text, name: rz2-t, x: 838, y: 56, w: 175, h: 40, text: "영역 2 · userz2\n1 → 2대", size: 12, bold: true, color: "171717"}
+          - {kind: round, name: rz3, x: 1031, y: 50, w: 175, h: 190, fill: "F7F7F7", line: "A6A6A6", radius: 5}
+          - {kind: text, name: rz3-t, x: 1031, y: 56, w: 175, h: 40, text: "영역 3 · userz3\n1 → 2대", size: 12, bold: true, color: "171717"}
+          - {kind: round, name: rz1-n1, x: 660, y: 106, w: 145, h: 52, fill: "FFFFFF", line: "5578FF", radius: 4}
+          - {kind: text, name: rz1-n1-t, x: 660, y: 108, w: 145, h: 48, text: "기존 노드", size: 11, color: "171717"}
+          - {kind: round, name: rz1-n2, x: 660, y: 168, w: 145, h: 52, fill: "EAF6EC", line: "2E7D32", dash: true, radius: 4}
+          - {kind: text, name: rz1-n2-t, x: 660, y: 170, w: 145, h: 48, text: "+1 확장", size: 11, bold: true, color: "2E7D32"}
+          - {kind: round, name: rz2-n1, x: 853, y: 106, w: 145, h: 52, fill: "FFFFFF", line: "5578FF", radius: 4}
+          - {kind: text, name: rz2-n1-t, x: 853, y: 108, w: 145, h: 48, text: "기존 노드", size: 11, color: "171717"}
+          - {kind: round, name: rz2-n2, x: 853, y: 168, w: 145, h: 52, fill: "EAF6EC", line: "2E7D32", dash: true, radius: 4}
+          - {kind: text, name: rz2-n2-t, x: 853, y: 170, w: 145, h: 48, text: "+1 확장", size: 11, bold: true, color: "2E7D32"}
+          - {kind: round, name: rz3-n1, x: 1046, y: 106, w: 145, h: 52, fill: "FFFFFF", line: "5578FF", radius: 4}
+          - {kind: text, name: rz3-n1-t, x: 1046, y: 108, w: 145, h: 48, text: "기존 노드", size: 11, color: "171717"}
+          - {kind: round, name: rz3-n2, x: 1046, y: 168, w: 145, h: 52, fill: "EAF6EC", line: "2E7D32", dash: true, radius: 4}
+          - {kind: text, name: rz3-n2-t, x: 1046, y: 170, w: 145, h: 48, text: "+1 확장", size: 11, bold: true, color: "2E7D32"}
+          - {kind: text, name: r-zone-how, x: 645, y: 280, w: 560, h: 80, text: "zone-fill 6개 (800m) → 108초 만에 Running 6/6\nTriggeredScaleUp 이벤트 1건에 세 풀이 함께 나옴\nuserz1 1→2 · userz2 1→2 · userz3 1→2", size: 11, color: "444444", align: left}
+          - {kind: round, name: r-zone-box, x: 645, y: 420, w: 560, h: 120, fill: "EAF6EC", line: "2E7D32", radius: 4}
+          - {kind: text, name: r-zone-box-t, x: 655, y: 426, w: 540, h: 108, text: "영역별 노드 1/1/1 → 2/2/2 · 최대−최소 0 ≤ 1\n영역 레이블이 다른 풀도 유사 그룹으로 묶여 함께 확장\n설정 확인: balanceSimilarNodeGroups = true\nPrivate Cluster·vm-mgmt 실행에서도 PowerShell판과 같은 결론", size: 11, color: "171717", align: left}
+    notes: |
+      앞 장 설계대로 Private AKS에서 돌린 스케일링 두 가지 결과입니다.
+      왼쪽 HPA부터 볼게요. minReplicas를 5에서 2로 패치하자 10초 뒤에 5에서 4로 줄었고, 이어서 61초, 62초 간격으로 3, 2까지 하나씩 내려갔습니다. 순서가 정확히 5, 4, 3, 2이고 간격이 모두 55초 기준을 넘었으니 PASS입니다. 5초 간격으로 표본 27개를 떴기 때문에 60초에서 1, 2초 벗어나는 건 측정 오차 범위예요. 즉 behavior에 넣은 Pods 1개, 60초 정책이 의도대로 동작한다는 거죠. 다만 패치에서 첫 감소까지 10초는 판정에서 뺀 관찰 값이라, 안정화 창 300초 동작을 이걸로 설명하시면 안 됩니다.
+      오른쪽은 영역 균형입니다. zone-fill Pod 6개를 800m로 띄우자 108초 만에 모두 Running이 됐고, 세 영역 모두 1대에서 2대로 늘어 2, 2, 2가 됐습니다. 더 중요한 건 TriggeredScaleUp 이벤트 하나에 세 풀이 함께 나왔다는 점이에요. 영역 레이블이 다른 풀도 CAS가 유사 그룹으로 묶어 같이 늘렸다는 뜻이고, balanceSimilarNodeGroups가 true인 것도 설정에서 확인했습니다.
+      Private Cluster에 관리 VM에서 돌렸는데도 PowerShell판과 같은 결론이 나왔다는 게 핵심이죠. 그럼 PRD 권장 YAML을 반영해서 본 결과를 다음 장에서 보겠습니다.
+    source: |
+      결과 파일: aks-network-validation-linux/results/20261120-050457.md (T12·T13)
+      https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/#configurable-scaling-behavior
+      https://learn.microsoft.com/azure/aks/cluster-autoscaler
+
+  - layout: content
+    title: "결과 ③ PRD 권장 YAML — 강제 분산 2/2/2, minReplicas 3 축소 규칙 일치"
+    title_size: 26
+    archetype: comparison
+    blocks:
+      - type: shapes
+        id: yaml-result
+        box: [30, 98, 1220, 572]
+        items:
+          - {kind: round, name: s-frame, x: 0, y: 0, w: 600, h: 570, fill: "FFFFFF", line: "008577", dash: true, radius: 6}
+          - {kind: text, name: s-title, x: 21, y: 10, w: 558, h: 26, text: "① T13b 강제 분산 + CAS — PASS", size: 15, bold: true, color: "006B5C", align: left}
+          - {kind: text, name: s-cfg, x: 21, y: 44, w: 558, h: 60, text: "zone-spread 6개 · CPU 800m · 노드 1/1/1에서 시작\nDoNotSchedule · minDomains 3 · taint Honor", size: 11, color: "444444", align: left}
+          - {kind: round, name: sz1, x: 21, y: 112, w: 174, h: 210, fill: "F7F7F7", line: "A6A6A6", radius: 5}
+          - {kind: text, name: sz1-t, x: 21, y: 118, w: 174, h: 22, text: "영역 1", size: 12, bold: true, color: "171717"}
+          - {kind: round, name: sz2, x: 213, y: 112, w: 174, h: 210, fill: "F7F7F7", line: "A6A6A6", radius: 5}
+          - {kind: text, name: sz2-t, x: 213, y: 118, w: 174, h: 22, text: "영역 2", size: 12, bold: true, color: "171717"}
+          - {kind: round, name: sz3, x: 405, y: 112, w: 174, h: 210, fill: "F7F7F7", line: "A6A6A6", radius: 5}
+          - {kind: text, name: sz3-t, x: 405, y: 118, w: 174, h: 22, text: "영역 3", size: 12, bold: true, color: "171717"}
+          - {kind: round, name: sz1-a, x: 36, y: 150, w: 144, h: 40, fill: "E8F0FB", line: "5578FF", radius: 4}
+          - {kind: text, name: sz1-a-t, x: 36, y: 152, w: 144, h: 36, text: "Pod", size: 11, bold: true, color: "1F4E79"}
+          - {kind: round, name: sz1-b, x: 36, y: 200, w: 144, h: 40, fill: "E8F0FB", line: "5578FF", radius: 4}
+          - {kind: text, name: sz1-b-t, x: 36, y: 202, w: 144, h: 36, text: "Pod", size: 11, bold: true, color: "1F4E79"}
+          - {kind: round, name: sz2-a, x: 228, y: 150, w: 144, h: 40, fill: "E8F0FB", line: "5578FF", radius: 4}
+          - {kind: text, name: sz2-a-t, x: 228, y: 152, w: 144, h: 36, text: "Pod", size: 11, bold: true, color: "1F4E79"}
+          - {kind: round, name: sz2-b, x: 228, y: 200, w: 144, h: 40, fill: "E8F0FB", line: "5578FF", radius: 4}
+          - {kind: text, name: sz2-b-t, x: 228, y: 202, w: 144, h: 36, text: "Pod", size: 11, bold: true, color: "1F4E79"}
+          - {kind: round, name: sz3-a, x: 420, y: 150, w: 144, h: 40, fill: "E8F0FB", line: "5578FF", radius: 4}
+          - {kind: text, name: sz3-a-t, x: 420, y: 152, w: 144, h: 36, text: "Pod", size: 11, bold: true, color: "1F4E79"}
+          - {kind: round, name: sz3-b, x: 420, y: 200, w: 144, h: 40, fill: "E8F0FB", line: "5578FF", radius: 4}
+          - {kind: text, name: sz3-b-t, x: 420, y: 202, w: 144, h: 36, text: "Pod", size: 11, bold: true, color: "1F4E79"}
+          - {kind: text, name: sz1-n, x: 21, y: 260, w: 174, h: 50, text: "노드 1 → 2", size: 11, bold: true, color: "2E7D32"}
+          - {kind: text, name: sz2-n, x: 213, y: 260, w: 174, h: 50, text: "노드 1 → 2", size: 11, bold: true, color: "2E7D32"}
+          - {kind: text, name: sz3-n, x: 405, y: 260, w: 174, h: 50, text: "노드 1 → 2", size: 11, bold: true, color: "2E7D32"}
+          - {kind: round, name: s-box, x: 21, y: 340, w: 558, h: 210, fill: "EAF6EC", line: "2E7D32", radius: 4}
+          - {kind: text, name: s-box-t, x: 36, y: 346, w: 528, h: 198, text: "Pod 2/2/2 · Pending 없음 · 6/6 Running 110초\n노드 1/1/1 → 2/2/2 (CAS가 세 영역 풀 확장)\nTriggeredScaleUp 이벤트는 일부만 남음\n(이번 userz2·userz1 2건) → 판정은 Pod·노드 수\n\n강제 분산과 CAS가 충돌 없이 함께 동작", size: 11, color: "171717", align: left}
+
+          - {kind: round, name: h-frame, x: 620, y: 0, w: 600, h: 570, fill: "FFFFFF", line: "5578FF", dash: true, radius: 6}
+          - {kind: text, name: h-title, x: 641, y: 10, w: 558, h: 26, text: "② T12b·T12c 축소 뒤 영역 분포", size: 15, bold: true, color: "1F4E79", align: left}
+          - {kind: text, name: h-cfg, x: 641, y: 44, w: 558, h: 60, text: "hpa-demo · replicas 생략 · 같은 강제 분산\n분산 제약은 축소 때 적용되지 않음", size: 11, color: "444444", align: left}
+          - {kind: text, name: h-before-l, x: 641, y: 116, w: 558, h: 22, text: "minReplicas 2 · 1/2/2 → 0/1/1 (T12b, INFO)", size: 12, bold: true, color: "171717", align: left}
+          - {kind: round, name: hb1, x: 641, y: 144, w: 174, h: 50, fill: "F3F4F6", line: "A6A6A6", dash: true, radius: 4}
+          - {kind: text, name: hb1-t, x: 641, y: 146, w: 174, h: 46, text: "영역 1 · 0개", size: 11, bold: true, color: "555555"}
+          - {kind: round, name: hb2, x: 833, y: 144, w: 174, h: 50, fill: "E8F0FB", line: "5578FF", radius: 4}
+          - {kind: text, name: hb2-t, x: 833, y: 146, w: 174, h: 46, text: "영역 2 · 1개", size: 11, bold: true, color: "1F4E79"}
+          - {kind: round, name: hb3, x: 1025, y: 144, w: 174, h: 50, fill: "E8F0FB", line: "5578FF", radius: 4}
+          - {kind: text, name: hb3-t, x: 1025, y: 146, w: 174, h: 46, text: "영역 3 · 1개", size: 11, bold: true, color: "1F4E79"}
+          - {kind: text, name: h-after-l, x: 641, y: 214, w: 558, h: 22, text: "minReplicas 3 · 5·9·12→3 각 2회 · 6회 모두 1/1/1 (T12c, PASS)", size: 12, bold: true, color: "171717", align: left}
+          - {kind: round, name: ha1, x: 641, y: 244, w: 174, h: 50, fill: "EAF6EC", line: "2E7D32", radius: 4}
+          - {kind: text, name: ha1-t, x: 641, y: 246, w: 174, h: 46, text: "영역 1 · 1개", size: 11, bold: true, color: "2E7D32"}
+          - {kind: round, name: ha2, x: 833, y: 244, w: 174, h: 50, fill: "EAF6EC", line: "2E7D32", radius: 4}
+          - {kind: text, name: ha2-t, x: 833, y: 246, w: 174, h: 46, text: "영역 2 · 1개", size: 11, bold: true, color: "2E7D32"}
+          - {kind: round, name: ha3, x: 1025, y: 244, w: 174, h: 50, fill: "EAF6EC", line: "2E7D32", radius: 4}
+          - {kind: text, name: ha3-t, x: 1025, y: 246, w: 174, h: 46, text: "영역 3 · 1개", size: 11, bold: true, color: "2E7D32"}
+          - {kind: round, name: h-box, x: 641, y: 340, w: 558, h: 210, fill: "EAF6EC", line: "2E7D32", radius: 4}
+          - {kind: text, name: h-box-t, x: 656, y: 346, w: 528, h: 198, text: "Pod 2개·영역 3개 → 한 영역은 반드시 빔\n차이 1로 maxSkew 1 충족 → 결함 아님\n\n삭제 34건 모두 ReplicaSet 삭제 규칙 예측과 일치 (11-22 재테스트)\n동률 후보 20건·한 번에 2개 삭제 1회도 규칙으로 설명됨\n1/1/1은 영역당 노드 1대에서 노드 혼잡 규칙이 작동한 결과\n축소 뒤 영역 균등 배치는 보장되지 않음", size: 11, color: "171717", align: left}
+
+    notes: |
+      앞 장이 기본 스케일링이었다면, 이번 장은 PRD 검토용 YAML에서 가져온 두 가지 결과입니다.
+      왼쪽 T13b부터 볼게요. zone-spread에 PRD YAML과 같은 영역 강제 분산, 그러니까 DoNotSchedule과 minDomains 3, nodeTaintsPolicy Honor를 넣었어요. 그리고 노드가 영역마다 한 대인 상태에서 6개로 늘렸습니다. CAS가 세 영역 풀을 한 대씩 늘려 노드가 2, 2, 2가 됐고, 110초 만에 Pod 2, 2, 2로 6개 모두 Running, Pending은 없었습니다. 이벤트는 이번에도 userz2와 userz1 두 건만 남아서, 판정은 Pod와 노드 수로만 했어요.
+      오른쪽은 축소 뒤 영역 분포입니다. T12b는 hpa-demo를 2개로 줄인 결과로 1, 2, 2에서 0, 1, 1이 됐는데요. Pod 2개에 영역 3개니까 한 영역이 비는 건 당연하고 차이 1이라 maxSkew 1도 만족합니다. 그래서 기록용 INFO고요, 진짜 질문은 영역 수만큼 남기면 영역마다 하나씩 남느냐였죠. T12c에서는 minReplicas 3으로 5개, 9개, 12개에서 3개로 줄이는 걸 각각 두 번씩 했고, 여섯 번 모두 1, 1, 1이 됐습니다. 지워진 Pod 34개를 Pod 감시로 기록해서 ReplicaSet 삭제 규칙 예측과 비교했더니 모두 일치했어요. 11월 22일 재테스트 결과인데, 같은 시각·같은 구간이라 후보가 여러 개인 경우가 20건, 한 번에 2개가 지워진 경우가 1회 있었고 모두 규칙으로 설명됩니다. 영역마다 노드가 한 대라서, 같은 노드에 Pod가 많은 쪽부터 지우는 규칙이 적용돼 1, 1, 1로 끝난 겁니다. 분산 제약은 새 Pod 배치에만 쓰이므로, 영역에 노드가 여러 대이거나 한 번에 여러 개를 줄이면 축소 뒤 영역 균등 배치는 보장되지 않습니다.
+      그럼 스케일링 결과를 PRD 관점으로 정리하겠습니다.
+    source: |
+      결과 파일: aks-network-validation-linux/results/20261120-050457.md (T12b·T13b), results/20261122-114525.md (T12c 재테스트)
+      https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraint/
+      https://github.com/kubernetes-sigs/descheduler
+
+  - layout: content
+    title: "스케일링 결과 정리 — 4 PASS + T12b INFO, 전체 26 PASS"
+    title_size: 26
+    archetype: comparison-table
+    blocks:
+      - type: table
+        id: takeaways
+        box: [40, 98, 1200, 200]
+        size: 12
+        symbols: false
+        first_col_bold: true
+        col_widths: [1.6, 3.6, 3.4]
+        columns: ["통제", "확인된 사실 (근거)", "PRD 설계 시사점"]
+        rows:
+          - ["HPA", "Pods 1 / 60초 정책으로 61·62초 간격 축소 (T12)", "축소 속도 제한은 behavior 정책으로 구현"]
+          - ["CAS 영역 균형", "세 영역 풀이 함께 확장, 노드 2/2/2 (T13)", "영역별 풀 + balance-similar-node-groups 유효"]
+          - ["강제 분산 + CAS", "DoNotSchedule·minDomains 3 → Pod 2/2/2, Pending 0 (T13b)", "PRD 권장 topologySpreadConstraints 그대로 사용"]
+          - ["축소 뒤 분포", "5·9·12→3 축소 6회 모두 1/1/1, 삭제 34건 규칙 일치 (T12c)", "축소 뒤 영역 균등은 보장 안 됨, 재분산은 Descheduler"]
+      - type: stats
+        id: totals
+        box: [40, 320, 1200, 130]
+        style: card
+        align: center
+        items:
+          - {value: "22", label: "네트워크 PASS", sub: "T1~T11 · T14~T23"}
+          - {value: "4", label: "스케일링 PASS", sub: "T12 · T12c · T13 · T13b"}
+          - {value: "1", label: "INFO (기록)", sub: "T12b"}
+          - {value: "26", label: "전체 PASS", sub: "FAIL 0 · INCONCLUSIVE 0"}
+      - type: callout
+        id: limits
+        box: [40, 472, 1200, 128]
+        text: "스케일링 4건 PASS (T12 · T12c · T13 · T13b) + T12b INFO · PowerShell판과 같은 결론<br>전체: 네트워크 22 + 스케일링 4 = 26 PASS + T12b INFO (11-20 · T12c 11-22 재테스트 · Private AKS)<br>검증 범위: 기능 검증 (성능 아님)"
+    notes: |
+      스케일링 파트를 PRD 관점으로 정리하면 네 줄입니다. HPA는 behavior 정책대로 61초, 62초 간격으로 1개씩 줄었고, 세 영역 풀이 함께 2, 2, 2로 늘었으며, PRD의 강제 분산도 CAS와 충돌 없이 2, 2, 2를 만들었습니다. minReplicas를 영역 수로 두면 축소 뒤에도 영역마다 하나씩 남았어요.
+      아래 상자가 전체 결론입니다. 네트워크 22건과 스케일링 4건, 합쳐서 26건 PASS에 T12b 하나가 기록용 INFO입니다. 가운데 숫자 카드로 보시면 FAIL과 INCONCLUSIVE는 하나도 없습니다. 결국 PRD에 적힌 HPA behavior, 영역별 풀, 강제 분산은 그대로 써도 된다는 결론입니다. 이상으로 Linux 관리 VM판 검증 결과 공유를 마치겠습니다. 질문 있으시면 편하게 주세요.
+    source: |
+      README: aks-network-validation-linux/README.md (최신 결과 26 PASS + T12b INFO)
+      설계 문서: docs/superpowers/specs/2026-11-20-aks-network-validation-linux-mgmt-vm-design.md
+      https://learn.microsoft.com/azure/aks/azure-cni-powered-by-cilium
+      https://kubernetes.io/docs/concepts/services-networking/network-policies/
