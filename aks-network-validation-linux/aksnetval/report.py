@@ -1,4 +1,4 @@
-"""결과 행 생성·저장(기존 Save-Results 대응)과 T15 병합."""
+"""결과 행 생성·저장(기존 Save-Results 대응)과 TN14 병합."""
 import json
 import sys
 from datetime import datetime
@@ -8,8 +8,7 @@ from aksnetval import localprobe
 from aksnetval.verdict import api_private_verdict
 
 COLUMNS = ("Id", "From", "To", "Expect", "Observed", "Verdict", "Note")
-ORDER = ["T1", "T2", "T2c", "T3", *[f"T{i}" for i in range(4, 12)], *[f"T{i}" for i in range(16, 24)],
-         "T12", "T12b", "T12c", "T13", "T13b", "T14", "T15"]
+ORDER = [*[f"TN{i}" for i in range(1, 23)], *[f"TS{i}" for i in range(1, 6)]]
 
 
 def row(id, frm, to, expect, observed, verdict, note="") -> dict:  # noqa: A002
@@ -42,7 +41,7 @@ def save(rows: list[dict], results_dir: str, stamp: str | None = None) -> dict:
     return {"json": str(j), "md": str(m)}
 
 
-def merge_t15(json_path: str, vm_obs_path: str, local: dict) -> dict:
+def merge_tn14(json_path: str, vm_obs_path: str, local: dict) -> dict:
     obs = json.loads(Path(vm_obs_path).read_text(encoding="utf-8"))
     if obs.get("error"):
         v = {"observed": "관측 실패", "verdict": "INCONCLUSIVE", "reason": f"vm-mgmt 관측 실패: {obs['error']}"}
@@ -55,16 +54,16 @@ def merge_t15(json_path: str, vm_obs_path: str, local: dict) -> dict:
             local_ip=local.get("ip", ""),
             local_connected=bool(local.get("connected")),
         )
-    t15 = row("T15", "vm-mgmt + 로컬", f"API 서버 {obs.get('fqdn', '')}:443", "사설 IP·로컬 접근 불가", v["observed"], v["verdict"], v["reason"])
+    tn14 = row("TN14", "vm-mgmt + 로컬", f"API 서버 {obs.get('fqdn', '')}:443", "사설 IP·로컬 접근 불가", v["observed"], v["verdict"], v["reason"])
     j = Path(json_path)
-    rows = [r for r in json.loads(j.read_text(encoding="utf-8")) if r.get("Id") != "T15"] + [t15]
+    rows = [r for r in json.loads(j.read_text(encoding="utf-8")) if r.get("Id") != "TN14"] + [tn14]
     _write(rows, j, j.with_suffix(".md"), j.stem)
-    return t15
+    return tn14
 
 
 def main(argv: list[str]) -> int:
     if not argv:
-        print("사용법: row <id> <from> <to> <expect> <observed> <verdict> [note] | save <dir> | merge-t15 <json> <vm_obs> <host>", file=sys.stderr)
+        print("사용법: row <id> <from> <to> <expect> <observed> <verdict> [note] | save <dir> | merge-tn14 <json> <vm_obs> <host>", file=sys.stderr)
         return 2
     cmd, args = argv[0], argv[1:]
     if cmd == "row" and len(args) in (6, 7):
@@ -72,8 +71,8 @@ def main(argv: list[str]) -> int:
     elif cmd == "save" and len(args) == 1:
         rows = [json.loads(line) for line in sys.stdin if line.strip()]
         print(json.dumps(save(rows, args[0]), ensure_ascii=False))
-    elif cmd == "merge-t15" and len(args) == 3:
-        print(json.dumps(merge_t15(args[0], args[1], localprobe.probe(args[2])), ensure_ascii=False))
+    elif cmd == "merge-tn14" and len(args) == 3:
+        print(json.dumps(merge_tn14(args[0], args[1], localprobe.probe(args[2])), ensure_ascii=False))
     else:
         print(f"인자가 올바르지 않습니다: {cmd}", file=sys.stderr)
         return 2

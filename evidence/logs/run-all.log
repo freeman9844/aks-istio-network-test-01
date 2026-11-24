@@ -1,25 +1,25 @@
 == 대조군 ==
-[T1] 10.50.1.10:80 Host web-a.test: 관측 200 → PASS
-[T2c] staksnetval<hash>.blob.core.windows.net:443 (TLS): 관측 400 → PASS
-[T4] bff-a:8080: 관측 200 → PASS
-[T6] bff-b:8080: 관측 200 → PASS
-[T11] staksnetval<hash>.blob.core.windows.net (10.50.2.4): 관측 400 → PASS
+[TN1] 10.50.1.10:80 Host web-a.test: 관측 200 → PASS
+[TN3] staksnetval<hash>.blob.core.windows.net:443 (TLS): 관측 400 → PASS
+[TN5] bff-a:8080: 관측 200 → PASS
+[TN7] bff-b:8080: 관측 200 → PASS
+[TN12] staksnetval<hash>.blob.core.windows.net (10.50.2.4): 관측 400 → PASS
 == 차단 테스트 ==
-[T2] 10.50.1.10:80 Host web-a.test: 관측 000 → PASS
-[T3] 10.50.1.10:80 (T1 재사용): 관측 200 → PASS
-[T5] bff-b:8080: 관측 403 → PASS
-[T7] bff-a:8080: 관측 403 → PASS
-[T8] bff-a:8080: 관측 000 → PASS
-[T9] web-b:8080 (Ingress 우회): 관측 403 → PASS
-[T10] staksnetval<hash>.blob.core.windows.net (10.50.2.4): 관측 000 → PASS
-== HPA 축소 (T12) ==
+[TN2] 10.50.1.10:80 Host web-a.test: 관측 000 → PASS
+[TN4] 10.50.1.10:80 (TN1 재사용): 관측 200 → PASS
+[TN6] bff-b:8080: 관측 403 → PASS
+[TN8] bff-a:8080: 관측 403 → PASS
+[TN9] bff-a:8080: 관측 000 → PASS
+[TN10] web-b:8080 (Ingress 우회): 관측 403 → PASS
+[TN11] staksnetval<hash>.blob.core.windows.net (10.50.2.4): 관측 000 → PASS
+== HPA 축소 (TS1) ==
 minReplicas 2 패치: 19:10:07
   19:10:12 replicas 5→4
   19:11:13 replicas 4→3
   19:12:13 replicas 3→2
-[T12] scale/hpa-demo (minReplicas 5→2): 관측 5,4,3,2 (간격 61,60초) → PASS
+[TS1] scale/hpa-demo (minReplicas 5→2): 관측 5,4,3,2 (간격 61,60초) → PASS
 hpa-demo minReplicas 5 원복
-== 영역 균형 (T13) ==
+== 영역 균형 (TS4) ==
 설정 확인: balanceSimilarNodeGroups=true; userz1=1, userz2=2, userz3=3
 사용자 노드가 최소(1대/풀) 상태가 아님: CAS 축소 대기(최대 20분)
 확장 전 사용자 노드: 영역1=1, 영역2=1, 영역3=1
@@ -31,6 +31,6 @@ hpa-demo minReplicas 5 원복
   19:20:46 zone-fill Running 2/6, 사용자 노드 영역1=3, 영역2=2, 영역3=2
   19:21:02 zone-fill Running 4/6, 사용자 노드 영역1=3, 영역2=2, 영역3=2
   19:21:18 zone-fill Running 6/6, 사용자 노드 영역1=3, 영역2=2, 영역3=2
-[T13] 사용자 노드 풀 userz1/userz2/userz3: 관측 영역1=3, 영역2=2, 영역3=2 → PASS
+[TS4] 사용자 노드 풀 userz1/userz2/userz3: 관측 영역1=3, 영역2=2, 영역3=2 → PASS
 zone-fill 0으로 원복(CAS 축소는 10분 이상 걸리며 판정하지 않음)
 결과 저장: <repo>\aks-network-validation\results\20261119-192119.json, <repo>\aks-network-validation\results\20261119-192119.md

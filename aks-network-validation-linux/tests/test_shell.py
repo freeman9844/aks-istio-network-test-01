@@ -87,7 +87,7 @@ def test_checked_commands_not_in_process_substitution():
 
 
 def test_apply_restarts_app_after_policy_second_boundary():
-    # creationTimestamp·startTime 은 초 단위라 같은 초에 재시작하면 T20 이 '정책 이후 기동'을 증명하지 못한다
+    # creationTimestamp·startTime 은 초 단위라 같은 초에 재시작하면 TN19 가 '정책 이후 기동'을 증명하지 못한다
     lines = (ROOT / "vm" / "02-apply.sh").read_text(encoding="utf-8").splitlines()
     i = next(n for n, ln in enumerate(lines) if "31-app-pe-egress.yaml" in ln and ln.startswith("apply_manifest"))
     j = next(n for n, ln in enumerate(lines) if "rollout restart deployment -n app" in ln)

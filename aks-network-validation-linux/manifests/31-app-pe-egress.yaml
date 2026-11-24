@@ -1,11 +1,11 @@
-# app 네임스페이스의 Private Endpoint egress 를 워크로드별로 나눈다(Linux 판 전용, T11·T16~T21).
+# app 네임스페이스의 Private Endpoint egress 를 워크로드별로 나눈다(Linux 판 전용, TN12·TN15~TN20).
 #   bff-b → Blob PE(staksnetval…,  10.50.2.4) 만 허용
 #   bff-a → Blob PE(staksnetvalb…, 10.50.2.5) 만 허용
 # 표준 NetworkPolicy 는 허용 규칙의 합집합이다. Pod 에 정책이 하나라도 걸리면 어느 정책에서든 허용된 목적지만 나갈 수 있다.
 #   ① app-egress-default : 모든 Pod 에 기본 egress(클러스터 내부 + PE 서브넷을 뺀 외부)를 허용한다
 #   ② allow-bff-*        : 해당 Pod 에만 자기 PE IP /32:443 을 더한다
-# 그래서 PE 이외의 기본 egress(CoreDNS, istiod xDS·인증서, 인터넷·Entra ID 등)는 막히지 않는다(T19~T21).
-#   ③ app-egress-nodes   : 노드(host·remote-node)로 가는 egress 를 연다(T22·T23). 아래 설명 참고
+# 그래서 PE 이외의 기본 egress(CoreDNS, istiod xDS·인증서, 인터넷·Entra ID 등)는 막히지 않는다(TN18~TN20).
+#   ③ app-egress-nodes   : 노드(host·remote-node)로 가는 egress 를 연다(TN21·TN22). 아래 설명 참고
 # PE IP 는 01-infra.sh 가 고정 IP 로 만든다(config.sh BLOB_PE_IP·BLOB2_PE_IP). 바꾸면 이 파일도 같이 바꾼다.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy

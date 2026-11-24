@@ -6,8 +6,8 @@
 
 # ── mTLS ────────────────────────────────────────────────
 # PeerAuthentication: 네임스페이스 안의 모든 워크로드가 mTLS 연결만 받는다(평문 거부).
-# 사이드카가 없는 Pod(nomesh/probe)의 평문 요청은 연결 단계에서 끊긴다(T8).
-# kubelet probe 는 사이드카가 rewrite 해 주므로 영향을 받지 않는다(T14).
+# 사이드카가 없는 Pod(nomesh/probe)의 평문 요청은 연결 단계에서 끊긴다(TN9).
+# kubelet probe 는 사이드카가 rewrite 해 주므로 영향을 받지 않는다(TN13).
 apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
@@ -86,7 +86,7 @@ spec:
 # principals 는 mTLS 인증서의 SA ID 로 비교하므로 STRICT mTLS 와 함께 써야 의미가 있다.
 
 # web 계층(tier: web)은 Ingress Gateway 에서 온 요청만 허용한다.
-# 메시 안에서 web-a → web-b 로 Gateway 를 우회해 호출하면 403(T9).
+# 메시 안에서 web-a → web-b 로 Gateway 를 우회해 호출하면 403(TN10).
 apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
@@ -103,7 +103,7 @@ spec:
             principals:
               - __GATEWAY_PRINCIPAL__
 ---
-# bff-a 는 web-a 의 SA 에서 온 요청만 허용(T4 허용, T5 web-a → bff-b 거부와 짝)
+# bff-a 는 web-a 의 SA 에서 온 요청만 허용(TN5 허용, TN6 web-a → bff-b 거부와 짝)
 apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
@@ -120,7 +120,7 @@ spec:
             principals:
               - cluster.local/ns/web/sa/web-a
 ---
-# bff-b 는 web-b 의 SA 에서 온 요청만 허용(T6 허용, T7 web-b → bff-a 거부와 짝)
+# bff-b 는 web-b 의 SA 에서 온 요청만 허용(TN7 허용, TN8 web-b → bff-a 거부와 짝)
 apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:

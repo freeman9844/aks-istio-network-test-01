@@ -1,5 +1,5 @@
 # 사이드카가 없는 클라이언트 probe(nomesh 네임스페이스에는 주입 레이블이 없다)
-# 이 Pod 에서 bff-a 로 평문 HTTP 를 보내 STRICT mTLS 가 연결을 끊는지 확인한다(T8, 기대: curl rc=56 연결 리셋).
+# 이 Pod 에서 bff-a 로 평문 HTTP 를 보내 STRICT mTLS 가 연결을 끊는지 확인한다(TN9, 기대: curl rc=56 연결 리셋).
 # 서버로 쓰지 않으므로 Service 는 두지 않는다. curl 을 쓰려고 netshoot 이미지를 쓴다.
 apiVersion: v1
 kind: ServiceAccount

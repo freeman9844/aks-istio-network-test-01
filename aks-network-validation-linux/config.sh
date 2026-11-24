@@ -16,7 +16,7 @@ SNET_OTHER_NAME="snet-other";         SNET_OTHER_PREFIX="10.50.3.32/27"
 SNET_MGMT_NAME="snet-mgmt";           SNET_MGMT_PREFIX="10.50.3.64/27"
 NSG_AKS_APP="nsg-aks-app"
 NSG_INGRESS="nsg-ingress"
-# nsg-ingress 의 Deny 규칙(01-infra 생성, 03-verify T3 확인)
+# nsg-ingress 의 Deny 규칙(01-infra 생성, 03-verify TN4 확인)
 NSG_INGRESS_DENY_RULE="deny-appgw-all"
 IDENTITY="id-aksnetval"
 INGRESS_IP="10.50.1.10"

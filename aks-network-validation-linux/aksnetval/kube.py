@@ -85,7 +85,7 @@ def scale_event_note(events: dict, pod_names: list[str], pending: int) -> str:
 
 
 def rs_pod_snapshot(nodes: dict, pods: dict) -> list[dict]:
-    """T12c: ReplicaSet 삭제 순위 계산에 쓰는 필드만 뽑는다(종료 중 Pod 제외)."""
+    """TS3: ReplicaSet 삭제 순위 계산에 쓰는 필드만 뽑는다(종료 중 Pod 제외)."""
     zone_of = _zone_of(nodes)
     out = []
     for p in _alive(pods.get("items", [])):
@@ -114,7 +114,7 @@ def _deletion_cost(raw: str) -> int:
 
 
 def rs_delete_times(rows: list[list[str]], names: list[str]) -> list[dict]:
-    """T12c: Pod watch 행 [이름, deletionTimestamp, 유예초]에서 삭제 요청 시각을 시각순으로.
+    """TS3: Pod watch 행 [이름, deletionTimestamp, 유예초]에서 삭제 요청 시각을 시각순으로.
 
     SuccessfulDelete 이벤트는 10분 안에 비슷한 이벤트가 쌓이면 하나로 합쳐져(메시지 덮어씀) 일부가 사라지므로 쓰지 않는다.
     """

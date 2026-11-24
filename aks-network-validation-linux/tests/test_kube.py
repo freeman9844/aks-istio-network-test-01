@@ -131,7 +131,7 @@ def test_cli_reads_json_file_arguments(tmp_path, capsys):
     assert json.loads(capsys.readouterr().out) == {"1": 2, "2": 1, "3": 1}
 
 
-# T12c: ReplicaSet 삭제 규칙 예측용 Pod 스냅숏과 watch 행에서 뽑은 삭제 요청 시각
+# TS3: ReplicaSet 삭제 규칙 예측용 Pod 스냅숏과 watch 행에서 뽑은 삭제 요청 시각
 def _rspod(name, uid, node, created, ready_at=None, restarts=(0,), deleting=False, cost=None):
     p = {
         "metadata": {"name": name, "uid": uid, "creationTimestamp": created},

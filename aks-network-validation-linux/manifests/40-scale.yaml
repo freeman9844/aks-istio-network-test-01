@@ -1,7 +1,7 @@
 # 스케일링 검증용 워크로드(scale 네임스페이스, 사용자 풀 userz1/2/3 에만 배치)
-#   hpa-demo    : HPA 축소 속도(T12), 축소 뒤 영역 분포(T12b 기록), 축소 때 삭제 Pod 선택(T12c 판정)
-#   zone-fill   : Cluster Autoscaler 영역 균형(T13). 분산 제약 없음
-#   zone-spread : 영역 강제 분산 + Cluster Autoscaler(T13b)
+#   hpa-demo    : HPA 축소 속도(TS1), 축소 뒤 영역 분포(TS2 기록), 축소 때 삭제 Pod 선택(TS3 판정)
+#   zone-fill   : Cluster Autoscaler 영역 균형(TS4). 분산 제약 없음
+#   zone-spread : 영역 강제 분산 + Cluster Autoscaler(TS5)
 # 세 워크로드 모두 pause 이미지라 CPU 를 실제로 쓰지 않는다. CPU 요청(requests)만으로 노드 자리를 차지한다.
 apiVersion: v1
 kind: ServiceAccount
@@ -46,7 +46,7 @@ spec:
           matchLabelKeys:
             - pod-template-hash
       # 주의: 분산 제약은 Pod 를 배치할 때만 적용된다. 축소할 때 어느 Pod 를 지울지는 ReplicaSet 규칙이 정한다.
-      # 그래서 T12c 에서 실제로 삭제된 Pod 를 ReplicaSet 삭제 규칙 예측과 대조한다.
+      # 그래서 TS3 에서 실제로 삭제된 Pod 를 ReplicaSet 삭제 규칙 예측과 대조한다.
       containers:
         - name: app
           image: registry.k8s.io/pause:3.9
@@ -56,8 +56,8 @@ spec:
 ---
 # HPA: 평소에는 최소 = 최대 = 5 로 Pod 5개를 고정한다.
 # 검증 스크립트가 minReplicas 를 낮춰 축소를 일으킨다.
-#   T12  : 5 → 2. 1분에 1개씩 줄어드는지 확인(5,4,3,2, 간격 55초 이상이면 PASS)
-#   T12c : 5·9·12개 → 3(영역 수)을 각 2회. 삭제된 Pod 가 ReplicaSet 삭제 규칙 예측과 모두 같으면 PASS(분포는 기록)
+#   TS1  : 5 → 2. 1분에 1개씩 줄어드는지 확인(5,4,3,2, 간격 55초 이상이면 PASS)
+#   TS3 : 5·9·12개 → 3(영역 수)을 각 2회. 삭제된 Pod 가 ReplicaSet 삭제 규칙 예측과 모두 같으면 PASS(분포는 기록)
 #          이때 검증 스크립트가 maxReplicas 도 시작 개수로 잠시 올리고, 끝나면 5/5 로 되돌린다.
 # pause 컨테이너는 CPU 를 쓰지 않아 사용률이 늘 목표(70%)보다 낮으므로, HPA 는 항상 최소값까지 줄이려 한다.
 apiVersion: autoscaling/v2
@@ -93,7 +93,7 @@ metadata:
   name: zone-fill
   namespace: scale
 ---
-# T13: Cluster Autoscaler 의 영역 균형(balance-similar-node-groups=true) 검증용. 평소 0개, 분산 제약 없음.
+# TS4: Cluster Autoscaler 의 영역 균형(balance-similar-node-groups=true) 검증용. 평소 0개, 분산 제약 없음.
 # 검증 때 6개로 늘리면 들어갈 자리가 없는 Pod 가 Pending 이 되고, CAS 가 영역별 풀(userz1/2/3)을 함께 늘리는지 본다.
 # CPU 800m 로 잡은 이유:
 #   - 새 D2s_v5 노드(할당 가능 1900m, DaemonSet 약 410m)에는 1개만 들어간다(800 × 2 > 1490).
@@ -131,7 +131,7 @@ metadata:
   name: zone-spread
   namespace: scale
 ---
-# T13b: PRD 권장 YAML 의 영역 강제 분산(hpa-demo 와 같은 제약)과 Cluster Autoscaler 를 함께 검증. 평소 0개.
+# TS5: PRD 권장 YAML 의 영역 강제 분산(hpa-demo 와 같은 제약)과 Cluster Autoscaler 를 함께 검증. 평소 0개.
 # 6개로 늘리면 영역마다 정확히 2개씩 있어야 한다. 기존 노드(풀당 1대)에는 800m 가 1개씩만 들어가므로
 # 남은 Pod 는 Pending 이 되고, CAS 가 Pod 가 들어갈 영역의 풀을 1대씩 늘려 노드 2/2/2, Pod 2/2/2 가 되기를 기대한다.
 apiVersion: apps/v1

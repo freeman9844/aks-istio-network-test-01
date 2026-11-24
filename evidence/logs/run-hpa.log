@@ -1,8 +1,8 @@
-== HPA 축소 (T12) ==
+== HPA 축소 (TS1) ==
 minReplicas 2 패치: 18:47:35
   18:47:51 replicas 5→4
   18:48:51 replicas 4→3
   18:49:51 replicas 3→2
-[T12] scale/hpa-demo (minReplicas 5→2): 관측 5,4,3,2 (간격 60,60초) → PASS
+[TS1] scale/hpa-demo (minReplicas 5→2): 관측 5,4,3,2 (간격 60,60초) → PASS
 hpa-demo minReplicas 5 원복
 결과 저장: <repo>\aks-network-validation\results\20261119-184952.json, <repo>\aks-network-validation\results\20261119-184952.md

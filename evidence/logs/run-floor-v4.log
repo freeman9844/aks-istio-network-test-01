@@ -1,7 +1,7 @@
-== 축소 뒤 영역 하한 (T12c) ==
+== 축소 뒤 영역 하한 (TS3) ==
   1회 2/1/2→1/1/1
   2회 1/2/2→1/1/1
   3회 1/2/2→1/1/1
-[T12c] scale/hpa-demo (minReplicas 5→3, 3회 반복): 관측 1회 2/1/2→1/1/1, 2회 1/2/2→1/1/1, 3회 1/2/2→1/1/1 → PASS
+[TS3] scale/hpa-demo (minReplicas 5→3, 3회 반복): 관측 1회 2/1/2→1/1/1, 2회 1/2/2→1/1/1, 3회 1/2/2→1/1/1 → PASS
 hpa-demo minReplicas 5 원복
 결과 저장: <repo>\aks-network-validation\results\20261120-100846.json, <repo>\aks-network-validation\results\20261120-100846.md

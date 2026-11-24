@@ -1,6 +1,6 @@
 [
   {
-    "Id": "T12",
+    "Id": "TS1",
     "From": "—",
     "To": "scale/hpa-demo (minReplicas 5→2)",
     "Expect": "5→4→3→2, 간격 ≥55초",

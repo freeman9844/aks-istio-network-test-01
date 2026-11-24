@@ -1,7 +1,7 @@
 # 1계층 웹 워크로드 web-a, web-b
 # - 외부 요청은 Istio 내부 Ingress Gateway(ILB 10.50.1.10)를 거쳐서만 들어온다(20-istio.yaml 의 AuthorizationPolicy).
-# - web-a 는 bff-a 만, web-b 는 bff-b 만 호출할 수 있다(1:1 호출, T4~T7).
-# - web 네임스페이스는 NetworkPolicy 로 Private Endpoint 대역(Blob)에 직접 접근할 수 없다(30-netpol.yaml, T10).
+# - web-a 는 bff-a 만, web-b 는 bff-b 만 호출할 수 있다(1:1 호출, TN5~TN8).
+# - web 네임스페이스는 NetworkPolicy 로 Private Endpoint 대역(Blob)에 직접 접근할 수 없다(30-netpol.yaml, TN11).
 # 앱은 netshoot 이미지의 socat 으로 만든 최소 HTTP 서버다. 8080 으로 받은 모든 요청에 200 "ok" 를 돌려준다.
 # 같은 이미지에 curl 이 있어 이 Pod 에서 다른 서비스로 요청을 보내는 클라이언트로도 쓴다.
 
@@ -51,7 +51,7 @@ spec:
             - containerPort: 8080
           # STRICT mTLS 에서는 kubelet 이 평문으로 8080 에 직접 접근할 수 없다.
           # Istio 사이드카 주입기가 이 probe 를 사이드카 포트 15020 의 /app-health/app/readyz 로 바꿔 쓰고(rewrite),
-          # 사이드카가 앱의 / 를 대신 호출한다. 바뀐 경로와 Ready 상태를 T14 에서 확인한다.
+          # 사이드카가 앱의 / 를 대신 호출한다. 바뀐 경로와 Ready 상태를 TN13 에서 확인한다.
           readinessProbe:
             httpGet:
               path: /
@@ -123,7 +123,7 @@ spec:
             - containerPort: 8080
           # STRICT mTLS 에서는 kubelet 이 평문으로 8080 에 직접 접근할 수 없다.
           # Istio 사이드카 주입기가 이 probe 를 사이드카 포트 15020 의 /app-health/app/readyz 로 바꿔 쓰고(rewrite),
-          # 사이드카가 앱의 / 를 대신 호출한다. 바뀐 경로와 Ready 상태를 T14 에서 확인한다.
+          # 사이드카가 앱의 / 를 대신 호출한다. 바뀐 경로와 Ready 상태를 TN13 에서 확인한다.
           readinessProbe:
             httpGet:
               path: /

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# vm-mgmt 에서 실행: 검증(기존 03-verify.ps1 이식) + T15 VM 관측.
+# vm-mgmt 에서 실행: 검증(기존 03-verify.ps1 이식) + TN14 VM 관측.
 # 사용: vm/03-verify.sh [--only all|network|hpa|floor|zone|spread]
-# 결과: $VM_ROOT/results/<stamp>.json·.md, $VM_ROOT/state/latest(stamp), $VM_ROOT/state/t15-vm.json(T15 판정은 로컬에서)
+# 결과: $VM_ROOT/results/<stamp>.json·.md, $VM_ROOT/state/latest(stamp), $VM_ROOT/state/tn14-vm.json(TN14 판정은 로컬에서)
 set -euo pipefail
 shopt -s inherit_errexit
 
@@ -255,7 +255,7 @@ event_note() {
     '{events: $e, pod_names: $n, pending: $p}')"
 }
 
-# ---------- 네트워크(T1~T11) ----------
+# ---------- 네트워크(TN1~TN12) ----------
 
 network_tests() {
   local ingress_url="http://$INGRESS_IP/" ingress_host=web-a.test
@@ -264,124 +264,124 @@ network_tests() {
   local bff_a=http://bff-a.app.svc.cluster.local:8080/
   local bff_b=http://bff-b.app.svc.cluster.local:8080/
   local web_b=http://web-b.web.svc.cluster.local:8080/
-  local r code v ip cn t1 t2c t4 t6 t11 t3 t3v t3n extra passed
+  local r code v ip cn tn1 tn3 tn5 tn7 tn12 tn4 tn4v tn4n extra passed
 
   log '== 대조군 =='
   r="$(vm_curl "$VM_APPGW" "$ingress_url" '' "$ingress_host")"; code="$(code_of "$r")"
-  t1="$(hv "$code" 200)"
-  add T1 "VM $VM_APPGW" "$INGRESS_IP:80 Host $ingress_host" 200 "$code" "$t1"
+  tn1="$(hv "$code" 200)"
+  add TN1 "VM $VM_APPGW" "$INGRESS_IP:80 Host $ingress_host" 200 "$code" "$tn1"
 
   # 같은 VM·run-command 경로가 정상인지: 스토리지의 HTTP 오류 코드도 연결 성공으로 본다
   r="$(vm_curl "$VM_OTHER" "$blob_url" k)"; code="$(code_of "$r")"
   if [[ "$code" != 000 ]]; then v=PASS; else v=FAIL; fi
-  t2c="$v"
-  add T2c "VM $VM_OTHER" "${blob_fqdn}:443 (TLS)" '연결 성공(≠000)' "$code" "$v"
+  tn3="$v"
+  add TN3 "VM $VM_OTHER" "${blob_fqdn}:443 (TLS)" '연결 성공(≠000)' "$code" "$v"
 
   r="$(pod_curl web web-a "$bff_a")"; code="$(code_of "$r")"
-  t4="$(hv "$code" 200)"
-  add T4 web/web-a bff-a:8080 200 "$code" "$t4"
+  tn5="$(hv "$code" 200)"
+  add TN5 web/web-a bff-a:8080 200 "$code" "$tn5"
 
   r="$(pod_curl web web-b "$bff_b")"; code="$(code_of "$r")"
-  t6="$(hv "$code" 200)"
-  add T6 web/web-b bff-b:8080 200 "$code" "$t6"
+  tn7="$(hv "$code" 200)"
+  add TN7 web/web-b bff-b:8080 200 "$code" "$tn7"
 
-  # bff-b 는 31-app-pe-egress.yaml 로 Blob PE(고정 IP)만 허용된다. T10 과 T16 의 대조군
+  # bff-b 는 31-app-pe-egress.yaml 로 Blob PE(고정 IP)만 허용된다. TN11 과 TN15 의 대조군
   ip="$(pod_dns app bff-b "$blob_fqdn")"
   r="$(pod_curl app bff-b "$blob_url" k)"; code="$(code_of "$r")"
-  t11="$(tv "$ip" "$code" ok true "$BLOB_PE_IP")"
-  add T11 app/bff-b "$blob_fqdn ($ip)" 'TLS 연결 성공(≠000)' "$code" "$t11" "DNS=$ip"
+  tn12="$(tv "$ip" "$code" ok true "$BLOB_PE_IP")"
+  add TN12 app/bff-b "$blob_fqdn ($ip)" 'TLS 연결 성공(≠000)' "$code" "$tn12" "DNS=$ip"
 
   log '== 차단 테스트 =='
   r="$(vm_curl "$VM_OTHER" "$ingress_url" '' "$ingress_host")"; code="$(code_of "$r")"
-  cn="$(control_note "T1=$t1" "T2c=$t2c")"
+  cn="$(control_note "TN1=$tn1" "TN3=$tn3")"
   passed="$([[ -z "$cn" && "$(ran_of "$r")" == true ]] && echo true || echo false)"
-  add T2 "VM $VM_OTHER" "$INGRESS_IP:80 Host $ingress_host" 'blocked(000)' "$code" \
+  add TN2 "VM $VM_OTHER" "$INGRESS_IP:80 Host $ingress_host" 'blocked(000)' "$code" \
     "$(hv "$code" blocked "$passed")" "$(join_note "$cn" "$(run_note "$r")")"
 
-  # T3: T1 재사용 전에 nsg-ingress Deny 규칙과 snet-ingress 연결을 읽기 전용으로 확인한다
+  # TN4: TN1 재사용 전에 nsg-ingress Deny 규칙과 snet-ingress 연결을 읽기 전용으로 확인한다
   : >"$ERRF"
-  if t3="$(t3_check "$t1")"; then
-    t3v="$(jq -r .verdict <<<"$t3")"; t3n="$(jq -r .note <<<"$t3")"
+  if tn4="$(tn4_check "$tn1")"; then
+    tn4v="$(jq -r .verdict <<<"$tn4")"; tn4n="$(jq -r .note <<<"$tn4")"
   else
-    t3v=INCONCLUSIVE; t3n="NSG 확인 실패: $(tr '\n' ' ' <"$ERRF")"
+    tn4v=INCONCLUSIVE; tn4n="NSG 확인 실패: $(tr '\n' ' ' <"$ERRF")"
     : >"$ERRF"
   fi
-  add T3 "VM $VM_APPGW" "$INGRESS_IP:80 (T1 재사용)" 200 "$(jq -r 'select(.Id == "T1") | .Observed' "$ROWS")" "$t3v" "$t3n"
+  add TN4 "VM $VM_APPGW" "$INGRESS_IP:80 (TN1 재사용)" 200 "$(jq -r 'select(.Id == "TN1") | .Observed' "$ROWS")" "$tn4v" "$tn4n"
 
   r="$(pod_curl web web-a "$bff_b")"; code="$(code_of "$r")"
-  cn="$(control_note "T6=$t6")"
-  add T5 web/web-a bff-b:8080 403 "$code" "$(hv "$code" 403 "$([[ -z "$cn" ]] && echo true || echo false)")" "$cn"
+  cn="$(control_note "TN7=$tn7")"
+  add TN6 web/web-a bff-b:8080 403 "$code" "$(hv "$code" 403 "$([[ -z "$cn" ]] && echo true || echo false)")" "$cn"
 
   r="$(pod_curl web web-b "$bff_a")"; code="$(code_of "$r")"
-  cn="$(control_note "T4=$t4")"
-  add T7 web/web-b bff-a:8080 403 "$code" "$(hv "$code" 403 "$([[ -z "$cn" ]] && echo true || echo false)")" "$cn"
+  cn="$(control_note "TN5=$tn5")"
+  add TN8 web/web-b bff-a:8080 403 "$code" "$(hv "$code" 403 "$([[ -z "$cn" ]] && echo true || echo false)")" "$cn"
 
-  # probe 쪽 exec 경로는 대조군(T4, web-a 출발)으로 검증되지 않으므로 curl 실제 실행 여부도 함께 게이트한다
+  # probe 쪽 exec 경로는 대조군(TN5, web-a 출발)으로 검증되지 않으므로 curl 실제 실행 여부도 함께 게이트한다
   r="$(pod_curl nomesh probe "$bff_a")"; code="$(code_of "$r")"
-  cn="$(control_note "T4=$t4")"
+  cn="$(control_note "TN5=$tn5")"
   passed="$([[ -z "$cn" && "$(ran_of "$r")" == true ]] && echo true || echo false)"
   extra=""
   [[ "$code" != 000 && "$code" != 200 ]] && extra="연결은 되었으나 코드 $code (200 아님)"
-  add T8 nomesh/probe bff-a:8080 'blocked(000)' "$code" \
+  add TN9 nomesh/probe bff-a:8080 'blocked(000)' "$code" \
     "$(hv "$code" blocked "$passed")" "$(join_note "$cn" "$(run_note "$r")" "$extra")"
 
   r="$(pod_curl web web-a "$web_b")"; code="$(code_of "$r")"
-  cn="$(control_note "T1=$t1")"
-  add T9 web/web-a 'web-b:8080 (Ingress 우회)' 403 "$code" "$(hv "$code" 403 "$([[ -z "$cn" ]] && echo true || echo false)")" "$cn"
+  cn="$(control_note "TN1=$tn1")"
+  add TN10 web/web-a 'web-b:8080 (Ingress 우회)' 403 "$code" "$(hv "$code" 403 "$([[ -z "$cn" ]] && echo true || echo false)")" "$cn"
 
   ip="$(pod_dns web web-a "$blob_fqdn")"
   r="$(pod_curl web web-a "$blob_url" k)"; code="$(code_of "$r")"
-  cn="$(control_note "T11=$t11")"
+  cn="$(control_note "TN12=$tn12")"
   passed="$([[ -z "$cn" && "$(ran_of "$r")" == true ]] && echo true || echo false)"
-  add T10 web/web-a "$blob_fqdn ($ip)" 'TLS 연결 실패(000)' "$code" \
+  add TN11 web/web-a "$blob_fqdn ($ip)" 'TLS 연결 실패(000)' "$code" \
     "$(tv "$ip" "$code" fail "$passed")" "$(join_note "DNS=$ip" "$cn" "$(run_note "$r")")"
 }
 
-# t3_check <T1 판정> → nsg_reuse_verdict JSON. 조건문 안에서 불리므로 실패를 직접 return 한다
-t3_check() {
+# tn4_check <TN1 판정> → nsg_reuse_verdict JSON. 조건문 안에서 불리므로 실패를 직접 return 한다
+tn4_check() {
   local access="" snsg
   if exists network nsg rule show -g "$RG" --nsg-name "$NSG_INGRESS" -n "$NSG_INGRESS_DENY_RULE"; then
     access="$(az_ok network nsg rule show -g "$RG" --nsg-name "$NSG_INGRESS" -n "$NSG_INGRESS_DENY_RULE" --query access -o tsv)" || return 1
   fi
   snsg="$(az_ok network vnet subnet show -g "$RG" --vnet-name "$VNET" -n "$SNET_INGRESS_NAME" --query networkSecurityGroup.id -o tsv)" || return 1
   py verdict nsg_reuse_verdict "$(jq -cn --arg t "$1" --arg a "$access" --arg s "$snsg" --arg n "$NSG_INGRESS" --arg r "$NSG_INGRESS_DENY_RULE" \
-    '{t1_verdict: $t, rule_access: $a, subnet_nsg_id: $s, nsg_name: $n, rule_name: $r}')"
+    '{tn1_verdict: $t, rule_access: $a, subnet_nsg_id: $s, nsg_name: $n, rule_name: $r}')"
 }
 
-# ---------- app 네임스페이스 PE egress 분리(T16~T21, 31-app-pe-egress.yaml) ----------
+# ---------- app 네임스페이스 PE egress 분리(TN15~TN20, 31-app-pe-egress.yaml) ----------
 
 APP_PE_TO='Blob PE 분리·bff-b 기본 egress'
 app_pe_tests() {
   local blob_fqdn="$STORAGE.blob.core.windows.net" blob2_fqdn="$STORAGE2.blob.core.windows.net"
-  local r code ip cn passed t17 policy_ts pod_ts after v
+  local r code ip cn passed tn16 policy_ts pod_ts after v
 
   log '== app 네임스페이스 PE egress 분리 =='
-  # T16: bff-a 는 Blob(bff-b 전용) PE 로 나갈 수 없다. 같은 PE 에 bff-b 가 닿는 T11 이 대조군
+  # TN15: bff-a 는 Blob(bff-b 전용) PE 로 나갈 수 없다. 같은 PE 에 bff-b 가 닿는 TN12 가 대조군
   ip="$(pod_dns app bff-a "$blob_fqdn")"
   r="$(pod_curl app bff-a "https://$blob_fqdn/" k)"; code="$(code_of "$r")"
-  cn="$(control_note "T11=$(row_verdict T11)")"
+  cn="$(control_note "TN12=$(row_verdict TN12)")"
   passed="$([[ -z "$cn" && "$(ran_of "$r")" == true ]] && echo true || echo false)"
-  add T16 app/bff-a "$blob_fqdn ($ip)" 'TLS 연결 실패(000)' "$code" \
+  add TN15 app/bff-a "$blob_fqdn ($ip)" 'TLS 연결 실패(000)' "$code" \
     "$(tv "$ip" "$code" fail "$passed" "$BLOB_PE_IP")" "$(join_note "DNS=$ip" "$cn" "$(run_note "$r")")"
 
-  # T17: bff-a 는 자기 PE(Blob2)로 나갈 수 있다. T18 의 대조군
+  # TN16: bff-a 는 자기 PE(Blob2)로 나갈 수 있다. TN17 의 대조군
   ip="$(pod_dns app bff-a "$blob2_fqdn")"
   r="$(pod_curl app bff-a "https://$blob2_fqdn/" k)"; code="$(code_of "$r")"
-  t17="$(tv "$ip" "$code" ok true "$BLOB2_PE_IP")"
-  add T17 app/bff-a "$blob2_fqdn ($ip)" 'TLS 연결 성공(≠000)' "$code" "$t17" "DNS=$ip"
+  tn16="$(tv "$ip" "$code" ok true "$BLOB2_PE_IP")"
+  add TN16 app/bff-a "$blob2_fqdn ($ip)" 'TLS 연결 성공(≠000)' "$code" "$tn16" "DNS=$ip"
 
-  # T18: bff-b 는 bff-a 전용 PE(Blob2)로 나갈 수 없다
+  # TN17: bff-b 는 bff-a 전용 PE(Blob2)로 나갈 수 없다
   ip="$(pod_dns app bff-b "$blob2_fqdn")"
   r="$(pod_curl app bff-b "https://$blob2_fqdn/" k)"; code="$(code_of "$r")"
-  cn="$(control_note "T17=$t17")"
+  cn="$(control_note "TN16=$tn16")"
   passed="$([[ -z "$cn" && "$(ran_of "$r")" == true ]] && echo true || echo false)"
-  add T18 app/bff-b "$blob2_fqdn ($ip)" 'TLS 연결 실패(000)' "$code" \
+  add TN17 app/bff-b "$blob2_fqdn ($ip)" 'TLS 연결 실패(000)' "$code" \
     "$(tv "$ip" "$code" fail "$passed" "$BLOB2_PE_IP")" "$(join_note "DNS=$ip" "$cn" "$(run_note "$r")")"
 
-  # T19~T21: PE 만 좁혔을 뿐 bff-b 의 기본 egress 는 그대로인지
+  # TN18~TN20: PE 만 좁혔을 뿐 bff-b 의 기본 egress 는 그대로인지
   ip="$(pod_dns app bff-b kubernetes.default.svc.cluster.local)"
   if [[ -n "$ip" ]]; then v=PASS; else v=FAIL; fi
-  add T19 app/bff-b 'CoreDNS (kubernetes.default 해석)' '해석 성공' "${ip:-해석 실패}" "$v"
+  add TN18 app/bff-b 'CoreDNS (kubernetes.default 해석)' '해석 성공' "${ip:-해석 실패}" "$v"
 
   # Envoy 는 istiod 에서 xDS 설정·인증서를 받아야 15021 이 200 이 된다. 정책 적용 뒤 기동한 Pod 여야 근거가 된다
   policy_ts="$(kube_ok get networkpolicy -n app app-egress-default -o 'jsonpath={.metadata.creationTimestamp}')"
@@ -390,15 +390,15 @@ app_pe_tests() {
   r="$(pod_curl app bff-b http://localhost:15021/healthz/ready)"; code="$(code_of "$r")"
   cn=""
   [[ "$after" == true ]] || cn="Pod 가 정책 적용 전에 기동(Pod $pod_ts, 정책 $policy_ts): 02-apply 재실행 필요"
-  add T20 app/bff-b 'istiod (Envoy xDS 동기화, :15021 ready)' 200 "$code" \
+  add TN19 app/bff-b 'istiod (Envoy xDS 동기화, :15021 ready)' 200 "$code" \
     "$(hv "$code" 200 "$([[ -z "$cn" ]] && echo true || echo false)")" "$(join_note "$cn" "Pod 기동 $pod_ts")"
 
   r="$(pod_curl app bff-b https://mcr.microsoft.com/v2/)"; code="$(code_of "$r")"
   if [[ "$code" != 000 ]]; then v=PASS; else v=FAIL; fi
-  add T21 app/bff-b 'mcr.microsoft.com:443 (인터넷)' '연결 성공(≠000)' "$code" "$v" "$(run_note "$r")"
+  add TN20 app/bff-b 'mcr.microsoft.com:443 (인터넷)' '연결 성공(≠000)' "$code" "$v" "$(run_note "$r")"
 }
 
-# ---------- T22·T23: bff-b → 노드(kubelet :10250) 기본 egress ----------
+# ---------- TN21·TN22: bff-b → 노드(kubelet :10250) 기본 egress ----------
 # Cilium 은 노드 IP 를 host(자기 노드)·remote-node(다른 노드) 엔터티로 따로 다루므로
 # 표준 NetworkPolicy 의 ipBlock 0.0.0.0/0 이 노드까지 허용하는지 실측한다. 정책 없는 nomesh/probe 가 대조군
 
@@ -411,8 +411,8 @@ node_egress_tests() {
 
   log '== bff-b → 노드 egress =='
   local id kind ip node
-  for id in T22 T23; do
-    if [[ "$id" == T22 ]]; then kind=자기; ip="$(jq -r .own_ip <<<"$t")"; node="$(jq -r .own_node <<<"$t")"
+  for id in TN21 TN22; do
+    if [[ "$id" == TN21 ]]; then kind=자기; ip="$(jq -r .own_ip <<<"$t")"; node="$(jq -r .own_node <<<"$t")"
     else kind=다른; ip="$(jq -r .other_ip <<<"$t")"; node="$(jq -r .other_node <<<"$t")"; fi
     r="$(pod_curl app bff-b "https://$ip:10250/healthz" k)"; code="$(code_of "$r")"
     c="$(pod_curl nomesh probe "https://$ip:10250/healthz" k)"
@@ -423,15 +423,15 @@ node_egress_tests() {
   done
 }
 
-# ---------- T14 ----------
+# ---------- TN13 ----------
 
-T14_TO='web-a/web-b/bff-a/bff-b readinessProbe'
-T14_EXPECT='Ready + 15020 /app-health/ rewrite'
+TN13_TO='web-a/web-b/bff-a/bff-b readinessProbe'
+TN13_EXPECT='Ready + 15020 /app-health/ rewrite'
 
 probe_test() {
   # STRICT mTLS 에서도 readinessProbe 가 Istio rewrite(15020 /app-health/)로 통과해 Ready 인지
   local t ns name v
-  log '== readinessProbe rewrite (T14) =='
+  log '== readinessProbe rewrite (TN13) =='
   : >"$WORK/probe.jsonl"
   for t in web/web-a web/web-b app/bff-a app/bff-b; do
     ns="${t%/*}"; name="${t#*/}"
@@ -439,21 +439,21 @@ probe_test() {
     py kube probe_items "$(jq -cn --arg f "@$WORK/pods.json" --arg ns "$ns" '{pods: $f, ns: $ns}')" >>"$WORK/probe.jsonl"
   done
   v="$(py verdict probe_rewrite_verdict "$(jq -cs '{pods: (add // [])}' "$WORK/probe.jsonl")")"
-  add T14 kubelet "$T14_TO" "$T14_EXPECT" "$(jq -r .observed <<<"$v")" "$(jq -r .verdict <<<"$v")" "$(jq -r .reason <<<"$v")"
+  add TN13 kubelet "$TN13_TO" "$TN13_EXPECT" "$(jq -r .observed <<<"$v")" "$(jq -r .verdict <<<"$v")" "$(jq -r .reason <<<"$v")"
 }
 
-# ---------- T15 관측 ----------
+# ---------- TN14 관측 ----------
 
-t15_observe() {
-  # 판정은 로컬(run.sh merge-t15)이 한다. 관측 실패는 error 로 남겨 INCONCLUSIVE 가 되게 한다
-  local out="$VM_ROOT/state/t15-vm.json" a fqdn ips readyz=false err
-  log '== API 서버 사설 확인 (T15 관측) =='
+tn14_observe() {
+  # 판정은 로컬(run.sh merge-tn14)이 한다. 관측 실패는 error 로 남겨 INCONCLUSIVE 가 되게 한다
+  local out="$VM_ROOT/state/tn14-vm.json" a fqdn ips readyz=false err
+  log '== API 서버 사설 확인 (TN14 관측) =='
   rm -f "$out"
   if ! a="$("${AZ:-az}" aks show -g "$RG" -n "$AKS" -o json \
     --query '{private: apiServerAccessProfile.enablePrivateCluster, publicFqdn: apiServerAccessProfile.enablePrivateClusterPublicFqdn, fqdn: privateFqdn}' 2>"$WORK/t15err")"; then
     err="az aks show 실패: $(tr '\n' ' ' <"$WORK/t15err" | head -c 300)"
     jq -n --arg e "$err" '{error: $e, fqdn: ""}' >"$out"
-    log "경고: T15 $err"
+    log "경고: TN14 $err"
     return 0
   fi
   fqdn="$(jq -r '.fqdn // ""' <<<"$a")"
@@ -463,13 +463,13 @@ t15_observe() {
   jq -n --argjson a "$a" --arg ips "$ips" --argjson r "$readyz" \
     '{private_enabled: ($a.private == true), public_fqdn_enabled: ($a.publicFqdn == true),
       vm_ips: ($ips | split("\n") | map(select(length > 0))), readyz_ok: $r, fqdn: ($a.fqdn // "")}' >"$out"
-  log "T15 관측: $(jq -c . "$out")"
+  log "TN14 관측: $(jq -c . "$out")"
 }
 
-# ---------- HPA(T12·T12b) ----------
+# ---------- HPA(TS1·TS2) ----------
 
-T12_TO='scale/hpa-demo (minReplicas 5→2)'
-T12_EXPECT='5→4→3→2, 간격 ≥55초'
+TS1_TO='scale/hpa-demo (minReplicas 5→2)'
+TS1_EXPECT='5→4→3→2, 간격 ≥55초'
 
 hpa_min() { kube_ok patch hpa hpa-demo -n scale --type merge -p "{\"spec\":{\"minReplicas\":$1}}" >/dev/null; }
 
@@ -498,11 +498,11 @@ hpa_running_le2() {
 
 hpa_test() {
   local zb za samples="$WORK/samples.jsonl" rep last patch_ts deadline hvj first observed diff now
-  log '== HPA 축소 (T12) =='
+  log '== HPA 축소 (TS1) =='
   # 이전 실행이 중간에 끊겼을 수 있으므로 시작 상태를 minReplicas 5로 맞춘 뒤 5개 Ready 확인
   hpa_min 5
   if ! wait_cond 300 5 hpa_ready5; then
-    add T12 '—' "$T12_TO" "$T12_EXPECT" '5개 Ready 아님' INCONCLUSIVE '시작 조건(hpa-demo 5개 Ready) 미충족, 5분 대기 초과'
+    add TS1 '—' "$TS1_TO" "$TS1_EXPECT" '5개 Ready 아님' INCONCLUSIVE '시작 조건(hpa-demo 5개 Ready) 미충족, 5분 대기 초과'
     return 0
   fi
 
@@ -532,24 +532,24 @@ hpa_test() {
   first="$(jq -rs --argjson p "$patch_ts" '.[0].replicas as $f | [.[] | select(.replicas != $f)][0]
     | if . == null then "감소 없음" else "패치→첫 감소 \(.epoch - $p)초(판정 외)" end' "$samples")"
   observed="$(jq -r '"\(.sequence | map(tostring) | join(",")) (간격 \(.intervals_sec | map(round | tostring) | join(","))초)"' <<<"$hvj")"
-  add T12 '—' "$T12_TO" "$T12_EXPECT" "$observed" "$(jq -r .verdict <<<"$hvj")" \
+  add TS1 '—' "$TS1_TO" "$TS1_EXPECT" "$observed" "$(jq -r .verdict <<<"$hvj")" \
     "$(join_note "$(jq -r .reason <<<"$hvj")" "$first" "표본 $(wc -l <"$samples" | tr -d ' ')개/5초")"
 
-  # T12b: 분산 제약(DoNotSchedule)은 배치 때만 적용된다. 축소 후 영역 분포를 기록만 한다(판정 없음)
+  # TS2: 분산 제약(DoNotSchedule)은 배치 때만 적용된다. 축소 후 영역 분포를 기록만 한다(판정 없음)
   wait_cond 90 5 hpa_running_le2 || true
   za="$(pod_zones scale app=hpa-demo)"
   diff="$(jq '[.counts["1"] // 0, .counts["2"] // 0, .counts["3"] // 0] | max - min' <<<"$za")"
-  add T12b '—' 'scale/hpa-demo 영역 분포(DoNotSchedule, minDomains 3)' '기록(판정 없음)' \
+  add TS2 '—' 'scale/hpa-demo 영역 분포(DoNotSchedule, minDomains 3)' '기록(판정 없음)' \
     "축소 전 $(fmt_short "$(jq -c .counts <<<"$zb")") → 축소 후 $(fmt_short "$(jq -c .counts <<<"$za")")" INFO \
-    "축소 후 영역별 Pod 수 차이 $diff (Running $(jq -r .running <<<"$za")); Pod 2개·영역 3개라 빈 영역 1개는 필연. 축소 때 지울 Pod 선택은 T12c 에서 판정"
+    "축소 후 영역별 Pod 수 차이 $diff (Running $(jq -r .running <<<"$za")); Pod 2개·영역 3개라 빈 영역 1개는 필연. 축소 때 지울 Pod 선택은 TS3 에서 판정"
 }
 
-# ---------- 축소 시 삭제 Pod 선택(T12c) ----------
+# ---------- 축소 시 삭제 Pod 선택(TS3) ----------
 
-T12C_STARTS=(5 9 12)
-T12C_ROUNDS=2
-T12C_TO='scale/hpa-demo (5·9·12개 → minReplicas 3, 각 2회)'
-T12C_EXPECT='삭제된 Pod = ReplicaSet 삭제 규칙 예측'
+TS1C_STARTS=(5 9 12)
+TS1C_ROUNDS=2
+TS1C_TO='scale/hpa-demo (5·9·12개 → minReplicas 3, 각 2회)'
+TS1C_EXPECT='삭제된 Pod = ReplicaSet 삭제 규칙 예측'
 
 hpa_set() { kube_ok patch hpa hpa-demo -n scale --type merge -p "{\"spec\":{\"minReplicas\":$1,\"maxReplicas\":$2}}" >/dev/null; }
 
@@ -582,13 +582,13 @@ floor_test() {
   # run_test 서브셸은 부모 trap 을 물려받지 않으므로, 중단·종료 시 watch 정리를 여기서 건다
   trap rs_watch_stop EXIT
   trap 'exit 143' TERM INT
-  log '== 축소 시 삭제 Pod 선택 (T12c) =='
+  log '== 축소 시 삭제 Pod 선택 (TS3) =='
   : >"$rounds"
-  for start in "${T12C_STARTS[@]}"; do
-    for ((n = 1; n <= T12C_ROUNDS; n++)); do
+  for start in "${TS1C_STARTS[@]}"; do
+    for ((n = 1; n <= TS1C_ROUNDS; n++)); do
       hpa_set "$start" "$start"
       if ! wait_cond 600 5 hpa_running_n "$start"; then
-        add T12c '—' "$T12C_TO" "$T12C_EXPECT" "${start}개 ${n}회 시작 조건 미충족" INCONCLUSIVE "hpa-demo ${start}개 Ready 아님, 10분 대기 초과"
+        add TS3 '—' "$TS1C_TO" "$TS1C_EXPECT" "${start}개 ${n}회 시작 조건 미충족" INCONCLUSIVE "hpa-demo ${start}개 Ready 아님, 10분 대기 초과"
         return 0
       fi
       snap="$(rs_snapshot)"
@@ -610,16 +610,16 @@ floor_test() {
     done
   done
   jq -cs '.' "$rounds" >"$WORK/rounds.json"
-  cp "$WORK/rounds.json" "$VM_ROOT/results/t12c-rounds-$(date +%Y%m%d-%H%M%S).json"
+  cp "$WORK/rounds.json" "$VM_ROOT/results/ts3-rounds-$(date +%Y%m%d-%H%M%S).json"
   fv="$(py verdict deletion_rule_verdict "$(jq -cn --arg r "@$WORK/rounds.json" '{rounds: $r}')")"
-  add T12c '—' "$T12C_TO" "$T12C_EXPECT" "$(jq -r .observed <<<"$fv")" "$(jq -r .verdict <<<"$fv")" \
+  add TS3 '—' "$TS1C_TO" "$TS1C_EXPECT" "$(jq -r .observed <<<"$fv")" "$(jq -r .verdict <<<"$fv")" \
     "$(join_note "$(jq -r .reason <<<"$fv")" "사용자 노드 $(fmt_short "$(user_zone_counts)")")"
 }
 
-# ---------- 영역 균형(T13) ----------
+# ---------- 영역 균형(TS4) ----------
 
-T13_TO="사용자 노드 풀 $POOLS_TEXT"
-T13_EXPECT='확장 후 영역별 노드 수 차이 ≤1'
+TS4_TO="사용자 노드 풀 $POOLS_TEXT"
+TS4_EXPECT='확장 후 영역별 노드 수 차이 ≤1'
 
 restore_zone_fill() {
   if kube scale deploy zone-fill -n scale --replicas=0 >/dev/null 2>&1; then
@@ -632,18 +632,18 @@ restore_zone_fill() {
 
 zone_test() {
   local target=6 zs setting before after now start deadline running pending elapsed zv ev cap note names="$WORK/zf-names"
-  log '== 영역 균형 (T13) =='
+  log '== 영역 균형 (TS4) =='
   az_ok aks show -g "$RG" -n "$AKS" -o json >"$WORK/aks.json"
   zs="$(py kube aks_zone_setting "$(jq -cn --arg a "@$WORK/aks.json" '{aks: $a, pools: $ARGS.positional}' --args "${USER_POOLS[@]}")")"
   setting="$(jq -r .setting <<<"$zs")"
   log "설정 확인: $setting"
   if [[ "$(jq -r .ok <<<"$zs")" != true ]]; then
-    add T13 '—' "$T13_TO" "$T13_EXPECT" '설정 불일치' INCONCLUSIVE "대조군(설정 확인) 실패: $setting"
+    add TS4 '—' "$TS4_TO" "$TS4_EXPECT" '설정 불일치' INCONCLUSIVE "대조군(설정 확인) 실패: $setting"
     return 0
   fi
   if ! wait_user_nodes_min; then
     now="$(user_zone_counts)"
-    add T13 '—' "$T13_TO" "$T13_EXPECT" "$(fmt_counts "$now")" INCONCLUSIVE "시작 조건 미충족: 사용자 노드가 풀당 ${USER_MIN}대로 돌아오지 않음(25분 대기)"
+    add TS4 '—' "$TS4_TO" "$TS4_EXPECT" "$(fmt_counts "$now")" INCONCLUSIVE "시작 조건 미충족: 사용자 노드가 풀당 ${USER_MIN}대로 돌아오지 않음(25분 대기)"
     return 0
   fi
   before="$(user_zone_counts)"
@@ -672,13 +672,13 @@ zone_test() {
     cap="모든 풀이 최대(${USER_MAX}대)에 도달: 균형이 최대값 제한으로 강제되었을 수 있음"
   fi
   note="$(join_note "$(jq -r .reason <<<"$zv")" "확장 전 $(fmt_counts "$before")" "Running $running/$target, ${elapsed}초" "$cap" "$ev" "설정: $setting")"
-  add T13 '—' "$T13_TO" "$T13_EXPECT" "$(fmt_counts "$after")" "$(jq -r .verdict <<<"$zv")" "$note"
+  add TS4 '—' "$TS4_TO" "$TS4_EXPECT" "$(fmt_counts "$after")" "$(jq -r .verdict <<<"$zv")" "$note"
 }
 
-# ---------- 영역 강제 분산(T13b) ----------
+# ---------- 영역 강제 분산(TS5) ----------
 
-T13B_TO='scale/zone-spread 6개(DoNotSchedule, minDomains 3)'
-T13B_EXPECT='Pod 2/2/2, Pending 없음'
+TS4B_TO='scale/zone-spread 6개(DoNotSchedule, minDomains 3)'
+TS4B_EXPECT='Pod 2/2/2, Pending 없음'
 
 restore_zone_spread() {
   if kube scale deploy zone-spread -n scale --replicas=0 >/dev/null 2>&1; then
@@ -692,10 +692,10 @@ restore_zone_spread() {
 spread_test() {
   # PRD 제안 YAML 의 영역 강제 분산(DoNotSchedule + minDomains 3)이 CAS 확장과 함께 Pod 2/2/2 를 만드는지
   local target=6 now before after start deadline pc elapsed sv ev observed names="$WORK/zs-names"
-  log '== 영역 강제 분산 + CAS (T13b) =='
+  log '== 영역 강제 분산 + CAS (TS5) =='
   if ! wait_user_nodes_min; then
     now="$(user_zone_counts)"
-    add T13b '—' "$T13B_TO" "$T13B_EXPECT" "노드 $(fmt_short "$now")" INCONCLUSIVE "시작 조건 미충족: 사용자 노드가 풀당 ${USER_MIN}대로 돌아오지 않음(25분 대기)"
+    add TS5 '—' "$TS4B_TO" "$TS4B_EXPECT" "노드 $(fmt_short "$now")" INCONCLUSIVE "시작 조건 미충족: 사용자 노드가 풀당 ${USER_MIN}대로 돌아오지 않음(25분 대기)"
     return 0
   fi
   before="$(user_zone_counts)"
@@ -717,37 +717,37 @@ spread_test() {
     '{pods_by_zone: $c, pending: $p, expected: $e}')")"
   ev="$(event_note "$names" "$(jq -r .pending <<<"$pc")")"
   observed="Pod $(fmt_short "$(jq -c .counts <<<"$pc")"), 노드 $(fmt_short "$before")→$(fmt_short "$after")"
-  add T13b '—' "$T13B_TO" "$T13B_EXPECT" "$observed" "$(jq -r .verdict <<<"$sv")" \
+  add TS5 '—' "$TS4B_TO" "$TS4B_EXPECT" "$observed" "$(jq -r .verdict <<<"$sv")" \
     "$(join_note "$(jq -r .reason <<<"$sv")" "Running $(jq -r .running <<<"$pc")/$target, ${elapsed}초" "$ev")"
 }
 
 # ---------- 실행 ----------
 
 if [[ "$ONLY" == all || "$ONLY" == network ]]; then
-  run_test T1 "VM $VM_APPGW" "$INGRESS_IP:80 Host web-a.test" 200 network_tests T2 T2c T3 T4 T5 T6 T7 T8 T9 T10 T11
-  run_test T16 app/bff-a "$APP_PE_TO" 'PE 분리 + 기본 egress 유지' app_pe_tests T17 T18 T19 T20 T21
-  run_test T22 app/bff-b "$NODE_TO" '연결 성공(≠000)' node_egress_tests T23
-  run_test T14 kubelet "$T14_TO" "$T14_EXPECT" probe_test
-  t15_observe
+  run_test TN1 "VM $VM_APPGW" "$INGRESS_IP:80 Host web-a.test" 200 network_tests TN2 TN3 TN4 TN5 TN6 TN7 TN8 TN9 TN10 TN11 TN12
+  run_test TN15 app/bff-a "$APP_PE_TO" 'PE 분리 + 기본 egress 유지' app_pe_tests TN16 TN17 TN18 TN19 TN20
+  run_test TN21 app/bff-b "$NODE_TO" '연결 성공(≠000)' node_egress_tests TN22
+  run_test TN13 kubelet "$TN13_TO" "$TN13_EXPECT" probe_test
+  tn14_observe
 fi
 if [[ "$ONLY" == all || "$ONLY" == hpa ]]; then
   PENDING_RESTORE=restore_hpa
-  run_test T12 '—' "$T12_TO" "$T12_EXPECT" hpa_test T12b
+  run_test TS1 '—' "$TS1_TO" "$TS1_EXPECT" hpa_test TS2
   restore_hpa
 fi
 if [[ "$ONLY" == all || "$ONLY" == floor ]]; then
   PENDING_RESTORE=restore_hpa
-  run_test T12c '—' "$T12C_TO" "$T12C_EXPECT" floor_test
+  run_test TS3 '—' "$TS1C_TO" "$TS1C_EXPECT" floor_test
   restore_hpa
 fi
 if [[ "$ONLY" == all || "$ONLY" == zone ]]; then
   PENDING_RESTORE=restore_zone_fill
-  run_test T13 '—' "$T13_TO" "$T13_EXPECT" zone_test
+  run_test TS4 '—' "$TS4_TO" "$TS4_EXPECT" zone_test
   restore_zone_fill
 fi
 if [[ "$ONLY" == all || "$ONLY" == spread ]]; then
   PENDING_RESTORE=restore_zone_spread
-  run_test T13b '—' "$T13B_TO" "$T13B_EXPECT" spread_test
+  run_test TS5 '—' "$TS4B_TO" "$TS4B_EXPECT" spread_test
   restore_zone_spread
 fi
 

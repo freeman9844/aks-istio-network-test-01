@@ -78,9 +78,9 @@ if [[ "$STAGE" == 03-verify ]]; then
   fetch_file "$latest" "$results/$name.json"
   fetch_file "${latest%.json}.md" "$results/$name.md"
   if [[ "$ONLY" == all || "$ONLY" == network ]]; then
-    fetch_file "$VM_ROOT/state/t15-vm.json" "$results/$name.t15-vm.json"
-    fqdn="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["fqdn"])' "$results/$name.t15-vm.json")"
-    (cd "$ROOT" && python3 -m aksnetval.report merge-t15 "$results/$name.json" "$results/$name.t15-vm.json" "$fqdn") >/dev/null
+    fetch_file "$VM_ROOT/state/tn14-vm.json" "$results/$name.tn14-vm.json"
+    fqdn="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["fqdn"])' "$results/$name.tn14-vm.json")"
+    (cd "$ROOT" && python3 -m aksnetval.report merge-tn14 "$results/$name.json" "$results/$name.tn14-vm.json" "$fqdn") >/dev/null
   fi
   (cd "$ROOT" && python3 - "$results/$name.json" <<'PY'
 import collections, json, sys

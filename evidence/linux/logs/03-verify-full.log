@@ -1,46 +1,46 @@
 코드 번들 업로드: 32K
 03-verify 시작(vm-mgmt, systemd 유닛 aksnetval-03-verify)
 [04:24:17] == 대조군 ==
-[04:24:49] [T1] 10.50.1.10:80 Host web-a.test: 관측 200 → PASS
-[04:25:21] [T2c] staksnetval<hash>.blob.core.windows.net:443 (TLS): 관측 400 → PASS
-[04:25:21] [T4] bff-a:8080: 관측 200 → PASS
-[04:25:22] [T6] bff-b:8080: 관측 200 → PASS
-[04:25:22] [T11] staksnetval<hash>.blob.core.windows.net (10.50.2.4): 관측 400 → PASS
+[04:24:49] [TN1] 10.50.1.10:80 Host web-a.test: 관측 200 → PASS
+[04:25:21] [TN3] staksnetval<hash>.blob.core.windows.net:443 (TLS): 관측 400 → PASS
+[04:25:21] [TN5] bff-a:8080: 관측 200 → PASS
+[04:25:22] [TN7] bff-b:8080: 관측 200 → PASS
+[04:25:22] [TN12] staksnetval<hash>.blob.core.windows.net (10.50.2.4): 관측 400 → PASS
 [04:25:22] == 차단 테스트 ==
-[04:26:24] [T2] 10.50.1.10:80 Host web-a.test: 관측 000 → PASS
-[04:26:27] [T3] 10.50.1.10:80 (T1 재사용): 관측 200 → PASS
-[04:26:27] [T5] bff-b:8080: 관측 403 → PASS
-[04:26:28] [T7] bff-a:8080: 관측 403 → PASS
-[04:26:28] [T8] bff-a:8080: 관측 000 → PASS
-[04:26:29] [T9] web-b:8080 (Ingress 우회): 관측 403 → PASS
-[04:26:39] [T10] staksnetval<hash>.blob.core.windows.net (10.50.2.4): 관측 000 → PASS
+[04:26:24] [TN2] 10.50.1.10:80 Host web-a.test: 관측 000 → PASS
+[04:26:27] [TN4] 10.50.1.10:80 (TN1 재사용): 관측 200 → PASS
+[04:26:27] [TN6] bff-b:8080: 관측 403 → PASS
+[04:26:28] [TN8] bff-a:8080: 관측 403 → PASS
+[04:26:28] [TN9] bff-a:8080: 관측 000 → PASS
+[04:26:29] [TN10] web-b:8080 (Ingress 우회): 관측 403 → PASS
+[04:26:39] [TN11] staksnetval<hash>.blob.core.windows.net (10.50.2.4): 관측 000 → PASS
 [04:26:39] == app 네임스페이스 PE egress 분리 ==
-[04:26:50] [T16] staksnetval<hash>.blob.core.windows.net (10.50.2.4): 관측 000 → PASS
-[04:26:51] [T17] staksnetvalb<hash>.blob.core.windows.net (10.50.2.5): 관측 400 → PASS
-[04:27:02] [T18] staksnetvalb<hash>.blob.core.windows.net (10.50.2.5): 관측 000 → PASS
-[04:27:02] [T19] CoreDNS (kubernetes.default 해석): 관측 10.0.0.1 → PASS
-[04:27:03] [T20] istiod (Envoy xDS 동기화, :15021 ready): 관측 200 → INCONCLUSIVE
-[04:27:03] [T21] mcr.microsoft.com:443 (인터넷): 관측 200 → PASS
-[04:27:03] == readinessProbe rewrite (T14) ==
-[04:27:04] [T14] web-a/web-b/bff-a/bff-b readinessProbe: 관측 Ready 4/4, rewrite 4/4 → PASS
-[04:27:04] == API 서버 사설 확인 (T15 관측) ==
-[04:27:06] T15 관측: {"private_enabled":true,"public_fqdn_enabled":false,"vm_ips":["10.50.4.4"],"readyz_ok":true,"fqdn":"<cluster>.<guid>.privatelink.koreacentral.azmk8s.io"}
-[04:27:06] == HPA 축소 (T12) ==
+[04:26:50] [TN15] staksnetval<hash>.blob.core.windows.net (10.50.2.4): 관측 000 → PASS
+[04:26:51] [TN16] staksnetvalb<hash>.blob.core.windows.net (10.50.2.5): 관측 400 → PASS
+[04:27:02] [TN17] staksnetvalb<hash>.blob.core.windows.net (10.50.2.5): 관측 000 → PASS
+[04:27:02] [TN18] CoreDNS (kubernetes.default 해석): 관측 10.0.0.1 → PASS
+[04:27:03] [TN19] istiod (Envoy xDS 동기화, :15021 ready): 관측 200 → INCONCLUSIVE
+[04:27:03] [TN20] mcr.microsoft.com:443 (인터넷): 관측 200 → PASS
+[04:27:03] == readinessProbe rewrite (TN13) ==
+[04:27:04] [TN13] web-a/web-b/bff-a/bff-b readinessProbe: 관측 Ready 4/4, rewrite 4/4 → PASS
+[04:27:04] == API 서버 사설 확인 (TN14 관측) ==
+[04:27:06] TN14 관측: {"private_enabled":true,"public_fqdn_enabled":false,"vm_ips":["10.50.4.4"],"readyz_ok":true,"fqdn":"<cluster>.<guid>.privatelink.koreacentral.azmk8s.io"}
+[04:27:06] == HPA 축소 (TS1) ==
 [04:27:06] 축소 전 hpa-demo Pod 영역 분포: 1/2/2
 [04:27:07] minReplicas 2 패치: 04:27:07
 [04:27:17]   replicas 5→4
 [04:28:18]   replicas 4→3
 [04:29:20]   replicas 3→2
-[04:29:20] [T12] scale/hpa-demo (minReplicas 5→2): 관측 5,4,3,2 (간격 61,62초) → PASS
-[04:29:20] [T12b] scale/hpa-demo 영역 분포(DoNotSchedule, minDomains 3): 관측 축소 전 1/2/2 → 축소 후 0/1/1 → INFO
+[04:29:20] [TS1] scale/hpa-demo (minReplicas 5→2): 관측 5,4,3,2 (간격 61,62초) → PASS
+[04:29:20] [TS2] scale/hpa-demo 영역 분포(DoNotSchedule, minDomains 3): 관측 축소 전 1/2/2 → 축소 후 0/1/1 → INFO
 [04:29:20] hpa-demo minReplicas 5 원복
-[04:29:20] == 축소 뒤 영역 하한 (T12c) ==
+[04:29:20] == 축소 뒤 영역 하한 (TS3) ==
 [04:36:35]   1회 1/2/2→1/1/1
 [04:37:07]   2회 1/2/2→1/1/1
 [04:38:05]   3회 1/2/2→1/1/1
-[04:38:05] [T12c] scale/hpa-demo (minReplicas 5→3, 3회 반복): 관측 1회 1/2/2→1/1/1, 2회 1/2/2→1/1/1, 3회 1/2/2→1/1/1 → PASS
+[04:38:05] [TS3] scale/hpa-demo (minReplicas 5→3, 3회 반복): 관측 1회 1/2/2→1/1/1, 2회 1/2/2→1/1/1, 3회 1/2/2→1/1/1 → PASS
 [04:38:05] hpa-demo minReplicas 5 원복
-[04:38:05] == 영역 균형 (T13) ==
+[04:38:05] == 영역 균형 (TS4) ==
 [04:38:07] 설정 확인: balanceSimilarNodeGroups=true; userz1=1, userz2=2, userz3=3
 [04:38:07] 확장 전 사용자 노드: 영역1=1, 영역2=1, 영역3=1
 [04:38:08]   zone-fill Running 0/6, 사용자 노드 영역1=1, 영역2=1, 영역3=1
@@ -51,9 +51,9 @@
 [04:39:25]   zone-fill Running 3/6, 사용자 노드 영역1=2, 영역2=2, 영역3=2
 [04:39:40]   zone-fill Running 5/6, 사용자 노드 영역1=2, 영역2=2, 영역3=2
 [04:39:55]   zone-fill Running 6/6, 사용자 노드 영역1=2, 영역2=2, 영역3=2
-[04:39:56] [T13] 사용자 노드 풀 userz1/userz2/userz3: 관측 영역1=2, 영역2=2, 영역3=2 → PASS
+[04:39:56] [TS4] 사용자 노드 풀 userz1/userz2/userz3: 관측 영역1=2, 영역2=2, 영역3=2 → PASS
 [04:39:56] zone-fill 0으로 원복(CAS 축소는 10분 이상 걸리며 판정하지 않음)
-[04:39:56] == 영역 강제 분산 + CAS (T13b) ==
+[04:39:56] == 영역 강제 분산 + CAS (TS5) ==
 [04:39:56] 사용자 노드가 최소(1대/풀) 상태가 아님: CAS 축소 대기(최대 25분)
 [05:03:06] 확장 전 사용자 노드: 영역1=1, 영역2=1, 영역3=1
 [05:03:22]   zone-spread Running 3/6 (Pod 1/1/1, Pending 3), 사용자 노드 1/1/1
@@ -63,35 +63,35 @@
 [05:04:25]   zone-spread Running 3/6 (Pod 1/1/1, Pending 3), 사용자 노드 2/2/2
 [05:04:40]   zone-spread Running 5/6 (Pod 2/1/2, Pending 1), 사용자 노드 2/2/2
 [05:04:56]   zone-spread Running 6/6 (Pod 2/2/2, Pending 0), 사용자 노드 2/2/2
-[05:04:57] [T13b] scale/zone-spread 6개(DoNotSchedule, minDomains 3): 관측 Pod 2/2/2, 노드 1/1/1→2/2/2 → PASS
+[05:04:57] [TS5] scale/zone-spread 6개(DoNotSchedule, minDomains 3): 관측 Pod 2/2/2, 노드 1/1/1→2/2/2 → PASS
 [05:04:57] zone-spread 0으로 원복
 [05:04:57] 결과 저장: /opt/aksnetval/results/20261120-050457.json
 [05:04:57] 판정 요약: INCONCLUSIVE 1, INFO 1, PASS 22
 03-verify 완료
-T1    PASS         200
-T2    PASS         000
-T2c   PASS         400
-T3    PASS         200
-T4    PASS         200
-T5    PASS         403
-T6    PASS         200
-T7    PASS         403
-T8    PASS         000
-T9    PASS         403
-T10   PASS         000
-T11   PASS         400
-T16   PASS         000
-T17   PASS         400
-T18   PASS         000
-T19   PASS         10.0.0.1
-T20   INCONCLUSIVE 200
-T21   PASS         200
-T12   PASS         5,4,3,2 (간격 61,62초)
-T12b  INFO         축소 전 1/2/2 → 축소 후 0/1/1
-T12c  PASS         1회 1/2/2→1/1/1, 2회 1/2/2→1/1/1, 3회 1/2/2→1/1/1
-T13   PASS         영역1=2, 영역2=2, 영역3=2
-T13b  PASS         Pod 2/2/2, 노드 1/1/1→2/2/2
-T14   PASS         Ready 4/4, rewrite 4/4
-T15   PASS         private=True, publicFqdn=False, vm=10.50.4.4, readyz=ok, local=NXDOMAIN/실패
+TN1    PASS         200
+TN2    PASS         000
+TN3   PASS         400
+TN4    PASS         200
+TN5    PASS         200
+TN6    PASS         403
+TN7    PASS         200
+TN8    PASS         403
+TN9    PASS         000
+TN10    PASS         403
+TN11   PASS         000
+TN12   PASS         400
+TN15   PASS         000
+TN16   PASS         400
+TN17   PASS         000
+TN18   PASS         10.0.0.1
+TN19   INCONCLUSIVE 200
+TN20   PASS         200
+TS1   PASS         5,4,3,2 (간격 61,62초)
+TS2  INFO         축소 전 1/2/2 → 축소 후 0/1/1
+TS3  PASS         1회 1/2/2→1/1/1, 2회 1/2/2→1/1/1, 3회 1/2/2→1/1/1
+TS4   PASS         영역1=2, 영역2=2, 영역3=2
+TS5  PASS         Pod 2/2/2, 노드 1/1/1→2/2/2
+TN13   PASS         Ready 4/4, rewrite 4/4
+TN14   PASS         private=True, publicFqdn=False, vm=10.50.4.4, readyz=ok, local=NXDOMAIN/실패
 요약: INCONCLUSIVE 1, INFO 1, PASS 23
 결과: <repo>/aks-network-validation-linux/results/20261120-050457.md

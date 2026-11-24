@@ -23,7 +23,7 @@ from aksnetval.verdict import (
 )
 
 
-# T22·T23: app Pod → 노드(kubelet) egress. 대조군은 정책 없는 nomesh/probe
+# TN21·TN22: app Pod → 노드(kubelet) egress. 대조군은 정책 없는 nomesh/probe
 @pytest.mark.parametrize("code,ran,ccode,cran,want", [
     ("401", True, "401", True, "PASS"),
     ("000", True, "401", True, "FAIL"),
@@ -35,7 +35,7 @@ def test_node_reach_verdict(code, ran, ccode, cran, want):
     assert node_reach_verdict(code, ran, ccode, cran) == want
 
 
-# T1~T11 HTTP
+# TN1~TN12 HTTP
 def test_http_200_pass():
     assert http_verdict("200", "200") == "PASS"
 
@@ -74,7 +74,7 @@ def test_is_pe_ip_other_subnet():
     assert is_pe_ip("10.50.20.4") is False
 
 
-# T11·T16~T18: NetworkPolicy 가 /32 로 허용하므로 해석 IP 가 고정 PE IP 와 달라도 경로 검증이 아님
+# TN12·TN15~TN17: NetworkPolicy 가 /32 로 허용하므로 해석 IP 가 고정 PE IP 와 달라도 경로 검증이 아님
 def test_tls_expected_ip_mismatch_inconclusive():
     assert tls_verdict("10.50.2.6", "400", "ok", expected_ip="10.50.2.5") == "INCONCLUSIVE"
 
@@ -83,7 +83,7 @@ def test_tls_expected_ip_match_pass():
     assert tls_verdict("10.50.2.5", "000", "fail", expected_ip="10.50.2.5") == "PASS"
 
 
-# T20: 정책 적용 뒤에 기동한 Pod 여야 istiod 연결이 정책 아래에서 이루어졌다고 볼 수 있다
+# TN19: 정책 적용 뒤에 기동한 Pod 여야 istiod 연결이 정책 아래에서 이루어졌다고 볼 수 있다
 @pytest.mark.parametrize("pod,policy,expected", [
     ("2026-01-01T00:10:00Z", "2026-01-01T00:00:00Z", True),
     ("2026-01-01T00:00:00Z", "2026-01-01T00:10:00Z", False),
@@ -94,7 +94,7 @@ def test_started_after(pod, policy, expected):
     assert started_after(pod, policy) is expected
 
 
-# T12 HPA
+# TS1 HPA
 def _samples(pairs):
     t0 = datetime(2026, 1, 1)
     return [{"time": (t0 + timedelta(seconds=s)).isoformat(), "replicas": r} for s, r in pairs]
@@ -120,7 +120,7 @@ def test_hpa_not_reached_2_fail():
     assert "2" in r["reason"]
 
 
-# T13 영역 균형
+# TS4 영역 균형
 def test_zone_balance_222_pass():
     assert zone_balance_verdict({"1": 2, "2": 2, "3": 2}, 0)["verdict"] == "PASS"
 
@@ -160,12 +160,12 @@ def test_require_empty_raises():
         require("", "GatewaySA")
 
 
-# T3 NSG 재사용
+# TN4 NSG 재사용
 NSG_ID = "/subscriptions/x/resourceGroups/rg/providers/Microsoft.Network/networkSecurityGroups/nsg-ingress"
 
 
-def _nsg(t1="PASS", access="Deny", nsg_id=NSG_ID):
-    return nsg_reuse_verdict(t1, access, nsg_id, "nsg-ingress", "deny-appgw-all")
+def _nsg(tn1="PASS", access="Deny", nsg_id=NSG_ID):
+    return nsg_reuse_verdict(tn1, access, nsg_id, "nsg-ingress", "deny-appgw-all")
 
 
 def test_nsg_reuse_pass():
@@ -174,8 +174,8 @@ def test_nsg_reuse_pass():
     assert "deny-appgw-all" in r["note"]
 
 
-def test_nsg_reuse_t1_fail():
-    assert _nsg(t1="FAIL")["verdict"] == "FAIL"
+def test_nsg_reuse_tn1_fail():
+    assert _nsg(tn1="FAIL")["verdict"] == "FAIL"
 
 
 def test_nsg_no_rule_inconclusive():
@@ -198,7 +198,7 @@ def test_nsg_not_attached_inconclusive():
     assert _nsg(nsg_id="")["verdict"] == "INCONCLUSIVE"
 
 
-# T13b Pod 분산
+# TS5 Pod 분산
 def test_spread_222_pass():
     assert pod_spread_verdict({"1": 2, "2": 2, "3": 2}, 0, 6)["verdict"] == "PASS"
 
@@ -217,7 +217,7 @@ def test_spread_short_inconclusive():
     assert pod_spread_verdict({"1": 2, "2": 2}, 0, 6)["verdict"] == "INCONCLUSIVE"
 
 
-# T14 probe rewrite
+# TN13 probe rewrite
 def _p(name, ready, port, path):
     return {"name": name, "ready": ready, "port": port, "path": path}
 
@@ -244,7 +244,7 @@ def test_probe_no_pods_inconclusive():
     assert probe_rewrite_verdict([])["verdict"] == "INCONCLUSIVE"
 
 
-# T12c ReplicaSet 삭제 규칙 예측
+# TS3 ReplicaSet 삭제 규칙 예측
 T0 = datetime(2026, 11, 20, 1, 0, 0)
 
 

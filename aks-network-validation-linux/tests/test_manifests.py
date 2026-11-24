@@ -81,7 +81,7 @@ def test_zone_spread_zero_replicas():
     assert re.search(r"name:\s*zone-spread\s*\r?\n\s*namespace:\s*scale\s*\r?\nspec:\s*\r?\n\s*replicas:\s*0", text("40-scale.yaml"), re.DOTALL)
 
 
-# ---------- Linux 판 전용: app 네임스페이스 PE egress 분리(T11, T16~T21) ----------
+# ---------- Linux 판 전용: app 네임스페이스 PE egress 분리(TN12, TN15~TN20) ----------
 
 LINUX_MANIFESTS = MANIFESTS
 
@@ -97,7 +97,7 @@ def app_pe_policies():
 
 
 def test_app_node_egress_uses_cilium_entities():
-    # Cilium 은 ipBlock 을 노드 IP 에 매칭하지 않으므로(T22·T23 실측) 노드 egress 는 엔터티로 연다
+    # Cilium 은 ipBlock 을 노드 IP 에 매칭하지 않으므로(TN21·TN22 실측) 노드 egress 는 엔터티로 연다
     yaml = pytest.importorskip("yaml")
     docs = [d for d in yaml.safe_load_all((LINUX_MANIFESTS / "31-app-pe-egress.yaml").read_text(encoding="utf-8")) if d]
     cnp = [d for d in docs if d["kind"] == "CiliumNetworkPolicy"]

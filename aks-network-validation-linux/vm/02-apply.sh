@@ -103,7 +103,7 @@ apply_manifest 30-netpol.yaml
 apply_manifest 31-app-pe-egress.yaml
 # 타임스탬프가 초 단위이므로 다음 초로 넘긴 뒤 재시작해야 Pod 기동 시각이 정책 생성 시각보다 확실히 늦다
 sleep 2
-# app Pod 를 정책 적용 뒤에 다시 띄운다. 그래야 Ready(istiod xDS·인증서 수신)가 정책 아래에서 이뤄졌다는 근거가 된다(T20)
+# app Pod 를 정책 적용 뒤에 다시 띄운다. 그래야 Ready(istiod xDS·인증서 수신)가 정책 아래에서 이뤄졌다는 근거가 된다(TN19)
 kube_ok rollout restart deployment -n app >/dev/null
 apply_manifest 40-scale.yaml
 

@@ -1,4 +1,4 @@
-== 영역 균형 (T13) ==
+== 영역 균형 (TS4) ==
 설정 확인: balanceSimilarNodeGroups=true; userz1=1, userz2=2, userz3=3
 확장 전 사용자 노드: 영역1=1, 영역2=1, 영역3=1
   18:50:08 zone-fill Running 0/6, 사용자 노드 영역1=1, 영역2=1, 영역3=1
@@ -10,6 +10,6 @@
   18:51:44 zone-fill Running 5/6, 사용자 노드 영역1=3, 영역2=3, 영역3=3
   18:52:00 zone-fill Running 5/6, 사용자 노드 영역1=3, 영역2=3, 영역3=3
   18:52:16 zone-fill Running 6/6, 사용자 노드 영역1=3, 영역2=3, 영역3=3
-[T13] 사용자 노드 풀 userz1/userz2/userz3: 관측 영역1=3, 영역2=3, 영역3=3 → PASS
+[TS4] 사용자 노드 풀 userz1/userz2/userz3: 관측 영역1=3, 영역2=3, 영역3=3 → PASS
 zone-fill 0으로 원복(CAS 축소는 10분 이상 걸리며 판정하지 않음)
 결과 저장: <repo>\aks-network-validation\results\20261119-185218.json, <repo>\aks-network-validation\results\20261119-185218.md

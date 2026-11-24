@@ -1,6 +1,6 @@
 [
   {
-    "Id": "T1",
+    "Id": "TN1",
     "From": "VM vm-appgw-sim",
     "To": "10.50.1.10:80 Host web-a.test",
     "Expect": "200",
@@ -9,7 +9,7 @@
     "Note": ""
   },
   {
-    "Id": "T2",
+    "Id": "TN2",
     "From": "VM vm-other",
     "To": "10.50.1.10:80 Host web-a.test",
     "Expect": "blocked(000)",
@@ -18,7 +18,7 @@
     "Note": "curl rc=28"
   },
   {
-    "Id": "T2c",
+    "Id": "TN3",
     "From": "VM vm-other",
     "To": "staksnetval<hash>.blob.core.windows.net:443 (TLS)",
     "Expect": "연결 성공(≠000)",
@@ -27,16 +27,16 @@
     "Note": ""
   },
   {
-    "Id": "T3",
+    "Id": "TN4",
     "From": "VM vm-appgw-sim",
-    "To": "10.50.1.10:80 (T1 재사용)",
+    "To": "10.50.1.10:80 (TN1 재사용)",
     "Expect": "200",
     "Observed": "200",
     "Verdict": "PASS",
-    "Note": "nsg-ingress Deny 존재 상태에서 T1 결과 재사용"
+    "Note": "nsg-ingress Deny 존재 상태에서 TN1 결과 재사용"
   },
   {
-    "Id": "T4",
+    "Id": "TN5",
     "From": "web/web-a",
     "To": "bff-a:8080",
     "Expect": "200",
@@ -45,7 +45,7 @@
     "Note": ""
   },
   {
-    "Id": "T5",
+    "Id": "TN6",
     "From": "web/web-a",
     "To": "bff-b:8080",
     "Expect": "403",
@@ -54,7 +54,7 @@
     "Note": ""
   },
   {
-    "Id": "T6",
+    "Id": "TN7",
     "From": "web/web-b",
     "To": "bff-b:8080",
     "Expect": "200",
@@ -63,7 +63,7 @@
     "Note": ""
   },
   {
-    "Id": "T7",
+    "Id": "TN8",
     "From": "web/web-b",
     "To": "bff-a:8080",
     "Expect": "403",
@@ -72,7 +72,7 @@
     "Note": ""
   },
   {
-    "Id": "T8",
+    "Id": "TN9",
     "From": "nomesh/probe",
     "To": "bff-a:8080",
     "Expect": "blocked(000)",
@@ -81,7 +81,7 @@
     "Note": "curl rc=56"
   },
   {
-    "Id": "T9",
+    "Id": "TN10",
     "From": "web/web-a",
     "To": "web-b:8080 (Ingress 우회)",
     "Expect": "403",
@@ -90,7 +90,7 @@
     "Note": ""
   },
   {
-    "Id": "T10",
+    "Id": "TN11",
     "From": "web/web-a",
     "To": "staksnetval<hash>.blob.core.windows.net (10.50.2.4)",
     "Expect": "TLS 연결 실패(000)",
@@ -99,7 +99,7 @@
     "Note": "DNS=10.50.2.4; curl rc=28"
   },
   {
-    "Id": "T11",
+    "Id": "TN12",
     "From": "app/bff-a",
     "To": "staksnetval<hash>.blob.core.windows.net (10.50.2.4)",
     "Expect": "TLS 연결 성공(≠000)",
@@ -108,7 +108,7 @@
     "Note": "DNS=10.50.2.4"
   },
   {
-    "Id": "T12",
+    "Id": "TS1",
     "From": "—",
     "To": "scale/hpa-demo (minReplicas 5→2)",
     "Expect": "5→4→3→2, 간격 ≥55초",
@@ -117,7 +117,7 @@
     "Note": "5→4→3→2 순서로 감소, 간격 61.0590401,59.8905939초; 패치→첫 감소 6초(판정 외); 표본 24개/5초"
   },
   {
-    "Id": "T13",
+    "Id": "TS4",
     "From": "—",
     "To": "사용자 노드 풀 userz1/userz2/userz3",
     "Expect": "확장 후 영역별 노드 수 차이 ≤1",

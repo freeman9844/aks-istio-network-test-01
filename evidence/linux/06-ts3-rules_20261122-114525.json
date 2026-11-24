@@ -1,6 +1,6 @@
 [
   {
-    "Id": "T12c",
+    "Id": "TS3",
     "From": "—",
     "To": "scale/hpa-demo (5·9·12개 → minReplicas 3, 각 2회)",
     "Expect": "삭제된 Pod = ReplicaSet 삭제 규칙 예측",

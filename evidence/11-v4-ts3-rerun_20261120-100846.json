@@ -1,6 +1,6 @@
 [
   {
-    "Id": "T12c",
+    "Id": "TS3",
     "From": "—",
     "To": "scale/hpa-demo (minReplicas 5→3, 3회 반복)",
     "Expect": "매회 세 영역 모두 Pod ≥1",

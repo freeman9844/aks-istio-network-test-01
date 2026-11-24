@@ -119,16 +119,16 @@ def zone_balance_verdict(nodes_by_zone: dict, pending: int, nodes_before: int = 
     return {"verdict": "FAIL", "reason": f"영역별 노드 수 차이 {diff} > 1 ({summary})"}
 
 
-def nsg_reuse_verdict(t1_verdict: str, rule_access: str | None, subnet_nsg_id: str | None, nsg_name: str, rule_name: str) -> dict:
-    # T3: nsg-ingress 에 Deny 규칙이 있고 snet-ingress 에 연결된 것이 확인될 때만 T1 판정을 재사용한다
+def nsg_reuse_verdict(tn1_verdict: str, rule_access: str | None, subnet_nsg_id: str | None, nsg_name: str, rule_name: str) -> dict:
+    # TN4: nsg-ingress 에 Deny 규칙이 있고 snet-ingress 에 연결된 것이 확인될 때만 TN1 판정을 재사용한다
     if rule_access != "Deny":
         got = f"access={rule_access}" if rule_access else "없음"
-        return {"verdict": "INCONCLUSIVE", "note": f"{nsg_name}/{rule_name} Deny 규칙 확인 실패({got}): T1 재사용 불가"}
+        return {"verdict": "INCONCLUSIVE", "note": f"{nsg_name}/{rule_name} Deny 규칙 확인 실패({got}): TN1 재사용 불가"}
     attached = subnet_nsg_id.rstrip("/").split("/")[-1] if subnet_nsg_id else ""
     if attached != nsg_name:
         got = attached or "없음"
-        return {"verdict": "INCONCLUSIVE", "note": f"서브넷 NSG 연결이 {nsg_name} 이 아님(연결된 NSG: {got}): T1 재사용 불가"}
-    return {"verdict": t1_verdict, "note": f"{nsg_name}/{rule_name} Deny 규칙과 서브넷 연결 확인, T1 결과 재사용"}
+        return {"verdict": "INCONCLUSIVE", "note": f"서브넷 NSG 연결이 {nsg_name} 이 아님(연결된 NSG: {got}): TN1 재사용 불가"}
+    return {"verdict": tn1_verdict, "note": f"{nsg_name}/{rule_name} Deny 규칙과 서브넷 연결 확인, TN1 결과 재사용"}
 
 
 def pod_spread_verdict(pods_by_zone: dict, pending: int, expected: int) -> dict:
@@ -317,7 +317,7 @@ def _batch_explained(pods: list[dict], names: set[str], now) -> int:
 
 
 def deletion_rule_verdict(rounds: list[dict], target: int = 3) -> dict:
-    """T12c: 축소 때 실제 삭제된 Pod 가 ReplicaSet 삭제 규칙(1~8번)으로 계산한 예측과 같은지.
+    """TS3: 축소 때 실제 삭제된 Pod 가 ReplicaSet 삭제 규칙(1~8번)으로 계산한 예측과 같은지.
     삭제 시각은 초 단위라 컨트롤러의 now 를 -3~+1초 범위로 흔들어, 로그 구간 경계에서 갈리면 후보를 모두 인정한다.
     2초 안에 몰린 삭제는 한 번의 동기화(정렬 1회, 노드별 개수 재계산 없음)나 1개씩 별도 동기화 어느 쪽으로든 설명되면 인정한다.
     삭제 기록이 빠진 회차는 남은 Pod 가 이후 예측을 흔들므로 판정하지 않는다(INCONCLUSIVE)."""
@@ -377,7 +377,7 @@ def deletion_rule_verdict(rounds: list[dict], target: int = 3) -> dict:
 
 
 def probe_rewrite_verdict(pods: list[dict]) -> dict:
-    # T14: 각 Pod 의 app 컨테이너 readinessProbe 가 Istio 에 의해 15020 /app-health/ 로 바뀌었고 Ready 인지
+    # TN13: 각 Pod 의 app 컨테이너 readinessProbe 가 Istio 에 의해 15020 /app-health/ 로 바뀌었고 Ready 인지
     n = len(pods)
     if n == 0:
         return {"verdict": "INCONCLUSIVE", "observed": "Pod 없음", "reason": "대상 Pod 없음"}
@@ -417,7 +417,7 @@ def _is_public(ip: str) -> bool:
 
 
 def api_private_verdict(private_enabled: bool, public_fqdn_enabled: bool, vm_ips: list[str], readyz_ok: bool, local_ip: str, local_connected: bool) -> dict:
-    # T15: FAIL(구성 위반) > INCONCLUSIVE(관측 불충분) > PASS 순으로 판정한다
+    # TN14: FAIL(구성 위반) > INCONCLUSIVE(관측 불충분) > PASS 순으로 판정한다
     observed = (
         f"private={private_enabled}, publicFqdn={public_fqdn_enabled}, vm={','.join(vm_ips) or '없음'}, "
         f"readyz={'ok' if readyz_ok else 'fail'}, local={local_ip or 'NXDOMAIN'}/{'연결' if local_connected else '실패'}"

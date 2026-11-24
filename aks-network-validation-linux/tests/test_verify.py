@@ -142,19 +142,19 @@ def _run(tmp_path, extra_env=None):
 def test_network_all_pass_with_expected_codes(tmp_path):
     r, vm_root, rows = _run(tmp_path)
     assert r.returncode == 0, r.stderr + r.stdout
-    assert list(rows) == ["T1", "T2", "T2c", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10", "T11",
-                          "T16", "T17", "T18", "T19", "T20", "T21", "T22", "T23", "T14"]
+    assert list(rows) == ["TN1", "TN2", "TN3", "TN4", "TN5", "TN6", "TN7", "TN8", "TN9", "TN10", "TN11", "TN12",
+                          "TN13", "TN15", "TN16", "TN17", "TN18", "TN19", "TN20", "TN21", "TN22"]
     assert {k: v["Verdict"] for k, v in rows.items() if v["Verdict"] != "PASS"} == {}
-    assert rows["T22"]["From"] == "app/bff-b" and "10.50.4.6:10250" in rows["T22"]["To"]
-    assert "10.50.4.4:10250" in rows["T23"]["To"] and rows["T23"]["Observed"] == "401"
-    assert rows["T3"]["Observed"] == "200"
-    assert rows["T11"]["From"] == "app/bff-b" and rows["T11"]["To"].endswith("(10.50.2.4)")
-    assert rows["T17"]["From"] == "app/bff-a" and rows["T17"]["To"].endswith("(10.50.2.5)")
-    assert rows["T19"]["Observed"] == "10.0.0.1"
-    assert rows["T2"]["Note"] == "curl rc=28"
+    assert rows["TN21"]["From"] == "app/bff-b" and "10.50.4.6:10250" in rows["TN21"]["To"]
+    assert "10.50.4.4:10250" in rows["TN22"]["To"] and rows["TN22"]["Observed"] == "401"
+    assert rows["TN4"]["Observed"] == "200"
+    assert rows["TN12"]["From"] == "app/bff-b" and rows["TN12"]["To"].endswith("(10.50.2.4)")
+    assert rows["TN16"]["From"] == "app/bff-a" and rows["TN16"]["To"].endswith("(10.50.2.5)")
+    assert rows["TN18"]["Observed"] == "10.0.0.1"
+    assert rows["TN2"]["Note"] == "curl rc=28"
     stamp = (vm_root / "state" / "latest").read_text(encoding="utf-8").strip()
     assert (vm_root / "results" / f"{stamp}.md").exists()
-    obs = json.loads((vm_root / "state" / "t15-vm.json").read_text(encoding="utf-8"))
+    obs = json.loads((vm_root / "state" / "tn14-vm.json").read_text(encoding="utf-8"))
     assert obs["private_enabled"] is True and obs["public_fqdn_enabled"] is False
     assert obs["readyz_ok"] is True and obs["fqdn"] == "aks-x.privatelink.koreacentral.azmk8s.io"
 
@@ -162,45 +162,45 @@ def test_network_all_pass_with_expected_codes(tmp_path):
 def test_probe_kubectl_failure_becomes_inconclusive_row(tmp_path):
     r, _, rows = _run(tmp_path, {"FAKE_FAIL_GETPODS": "1"})
     assert r.returncode == 0, r.stderr + r.stdout
-    assert rows["T14"]["Verdict"] == "INCONCLUSIVE"
-    assert rows["T14"]["Note"].startswith("실행 오류: kubectl get pods 실패(종료 코드 1): connection refused")
-    assert rows["T1"]["Verdict"] == "PASS"
+    assert rows["TN13"]["Verdict"] == "INCONCLUSIVE"
+    assert rows["TN13"]["Note"].startswith("실행 오류: kubectl get pods 실패(종료 코드 1): connection refused")
+    assert rows["TN1"]["Verdict"] == "PASS"
 
 
-def test_bffa_reaching_blob_fails_t16(tmp_path):
+def test_bffa_reaching_blob_fails_tn15(tmp_path):
     r, _, rows = _run(tmp_path, {"FAKE_BFFA_BLOB": "400"})
     assert r.returncode == 0, r.stderr + r.stdout
-    assert rows["T16"]["Verdict"] == "FAIL"
-    assert rows["T11"]["Verdict"] == "PASS"
+    assert rows["TN15"]["Verdict"] == "FAIL"
+    assert rows["TN12"]["Verdict"] == "PASS"
 
 
-def test_pod_started_before_policy_makes_t20_inconclusive(tmp_path):
+def test_pod_started_before_policy_makes_tn19_inconclusive(tmp_path):
     r, _, rows = _run(tmp_path, {"FAKE_OLD_POD": "1"})
     assert r.returncode == 0, r.stderr + r.stdout
-    assert rows["T20"]["Verdict"] == "INCONCLUSIVE"
-    assert "정책 적용 전" in rows["T20"]["Note"]
+    assert rows["TN19"]["Verdict"] == "INCONCLUSIVE"
+    assert "정책 적용 전" in rows["TN19"]["Note"]
 
 
 def test_mid_function_abort_leaves_rows_for_remaining_ids(tmp_path):
-    # app_pe_tests 가 T16~T19 를 쓴 뒤 중단돼도 T20·T21 이 누락되지 않아야 한다(요약이 전부 PASS 로 보이는 것 방지)
+    # app_pe_tests 가 TN15~TN18 을 쓴 뒤 중단돼도 TN19·TN20 이 누락되지 않아야 한다(요약이 전부 PASS 로 보이는 것 방지)
     r, _, rows = _run(tmp_path, {"FAKE_NO_NETPOL": "1"})
     assert r.returncode == 0, r.stderr + r.stdout
-    assert rows["T19"]["Verdict"] == "PASS"
-    for i in ("T20", "T21"):
+    assert rows["TN18"]["Verdict"] == "PASS"
+    for i in ("TN19", "TN20"):
         assert rows[i]["Verdict"] == "INCONCLUSIVE"
         assert rows[i]["Note"].startswith("실행 오류")
-    assert list(rows)[-1] == "T14"
+    assert list(rows)[-1] == "TN22"
 
 
-def test_node_egress_blocked_fails_t22_t23(tmp_path):
+def test_node_egress_blocked_fails_tn21_tn22(tmp_path):
     # 기본 egress 정책이 노드(host/remote-node)를 막으면 FAIL 로 드러나야 한다
     r, _, rows = _run(tmp_path, {"FAKE_BFFB_NODE": "000"})
     assert r.returncode == 0, r.stderr + r.stdout
-    assert rows["T22"]["Verdict"] == "FAIL" and rows["T23"]["Verdict"] == "FAIL"
+    assert rows["TN21"]["Verdict"] == "FAIL" and rows["TN22"]["Verdict"] == "FAIL"
 
 
-def test_node_control_unreachable_makes_t22_t23_inconclusive(tmp_path):
+def test_node_control_unreachable_makes_tn21_tn22_inconclusive(tmp_path):
     r, _, rows = _run(tmp_path, {"FAKE_BFFB_NODE": "000", "FAKE_PROBE_NODE": "000"})
     assert r.returncode == 0, r.stderr + r.stdout
-    assert rows["T22"]["Verdict"] == "INCONCLUSIVE" and rows["T23"]["Verdict"] == "INCONCLUSIVE"
-    assert "대조군" in rows["T22"]["Note"]
+    assert rows["TN21"]["Verdict"] == "INCONCLUSIVE" and rows["TN22"]["Verdict"] == "INCONCLUSIVE"
+    assert "대조군" in rows["TN21"]["Note"]
