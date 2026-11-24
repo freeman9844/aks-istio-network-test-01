@@ -1,0 +1,245 @@
+[
+  {
+    "Id": "TN1",
+    "From": "VM vm-appgw-sim",
+    "To": "10.50.1.10:80 Host web-a.test",
+    "Expect": "200",
+    "Observed": "200",
+    "Verdict": "PASS",
+    "Note": ""
+  },
+  {
+    "Id": "TN2",
+    "From": "VM vm-other",
+    "To": "10.50.1.10:80 Host web-a.test",
+    "Expect": "blocked(000)",
+    "Observed": "000",
+    "Verdict": "PASS",
+    "Note": "curl rc=28"
+  },
+  {
+    "Id": "TN3",
+    "From": "VM vm-other",
+    "To": "staksnetval<hash>.blob.core.windows.net:443 (TLS)",
+    "Expect": "연결 성공(≠000)",
+    "Observed": "400",
+    "Verdict": "PASS",
+    "Note": ""
+  },
+  {
+    "Id": "TN4",
+    "From": "VM vm-appgw-sim",
+    "To": "10.50.1.10:80 (TN1 재사용)",
+    "Expect": "200",
+    "Observed": "200",
+    "Verdict": "PASS",
+    "Note": "nsg-ingress/deny-appgw-all Deny 규칙과 서브넷 연결 확인, TN1 결과 재사용"
+  },
+  {
+    "Id": "TN5",
+    "From": "web/web-a",
+    "To": "bff-a:8080",
+    "Expect": "200",
+    "Observed": "200",
+    "Verdict": "PASS",
+    "Note": ""
+  },
+  {
+    "Id": "TN6",
+    "From": "web/web-a",
+    "To": "bff-b:8080",
+    "Expect": "403",
+    "Observed": "403",
+    "Verdict": "PASS",
+    "Note": ""
+  },
+  {
+    "Id": "TN7",
+    "From": "web/web-b",
+    "To": "bff-b:8080",
+    "Expect": "200",
+    "Observed": "200",
+    "Verdict": "PASS",
+    "Note": ""
+  },
+  {
+    "Id": "TN8",
+    "From": "web/web-b",
+    "To": "bff-a:8080",
+    "Expect": "403",
+    "Observed": "403",
+    "Verdict": "PASS",
+    "Note": ""
+  },
+  {
+    "Id": "TN9",
+    "From": "nomesh/probe",
+    "To": "bff-a:8080",
+    "Expect": "blocked(000)",
+    "Observed": "000",
+    "Verdict": "PASS",
+    "Note": "curl rc=56"
+  },
+  {
+    "Id": "TN10",
+    "From": "web/web-a",
+    "To": "web-b:8080 (Ingress 우회)",
+    "Expect": "403",
+    "Observed": "403",
+    "Verdict": "PASS",
+    "Note": ""
+  },
+  {
+    "Id": "TN11",
+    "From": "web/web-a",
+    "To": "staksnetval<hash>.blob.core.windows.net (10.50.2.4)",
+    "Expect": "TLS 연결 실패(000)",
+    "Observed": "000",
+    "Verdict": "PASS",
+    "Note": "DNS=10.50.2.4; curl rc=28"
+  },
+  {
+    "Id": "TN12",
+    "From": "app/bff-b",
+    "To": "staksnetval<hash>.blob.core.windows.net (10.50.2.4)",
+    "Expect": "TLS 연결 성공(≠000)",
+    "Observed": "400",
+    "Verdict": "PASS",
+    "Note": "DNS=10.50.2.4"
+  },
+  {
+    "Id": "TN13",
+    "From": "kubelet",
+    "To": "web-a/web-b/bff-a/bff-b readinessProbe",
+    "Expect": "Ready + 15020 /app-health/ rewrite",
+    "Observed": "Ready 4/4, rewrite 4/4",
+    "Verdict": "PASS",
+    "Note": "모든 Pod가 15020 /app-health/app/readyz 로 rewrite 후 Ready"
+  },
+  {
+    "Id": "TN14",
+    "From": "vm-mgmt + 로컬",
+    "To": "API 서버 <cluster>.<guid>.privatelink.koreacentral.azmk8s.io:443",
+    "Expect": "사설 IP·로컬 접근 불가",
+    "Observed": "private=True, publicFqdn=False, vm=10.50.4.4, readyz=ok, local=NXDOMAIN/실패",
+    "Verdict": "PASS",
+    "Note": "API 서버는 사설 IP로만 해석·접근되고 로컬에서는 접근 불가"
+  },
+  {
+    "Id": "TN15",
+    "From": "app/bff-a",
+    "To": "staksnetval<hash>.blob.core.windows.net (10.50.2.4)",
+    "Expect": "TLS 연결 실패(000)",
+    "Observed": "000",
+    "Verdict": "PASS",
+    "Note": "DNS=10.50.2.4; curl rc=28"
+  },
+  {
+    "Id": "TN16",
+    "From": "app/bff-a",
+    "To": "staksnetvalb<hash>.blob.core.windows.net (10.50.2.5)",
+    "Expect": "TLS 연결 성공(≠000)",
+    "Observed": "400",
+    "Verdict": "PASS",
+    "Note": "DNS=10.50.2.5"
+  },
+  {
+    "Id": "TN17",
+    "From": "app/bff-b",
+    "To": "staksnetvalb<hash>.blob.core.windows.net (10.50.2.5)",
+    "Expect": "TLS 연결 실패(000)",
+    "Observed": "000",
+    "Verdict": "PASS",
+    "Note": "DNS=10.50.2.5; curl rc=28"
+  },
+  {
+    "Id": "TN18",
+    "From": "app/bff-b",
+    "To": "CoreDNS (kubernetes.default 해석)",
+    "Expect": "해석 성공",
+    "Observed": "10.0.0.1",
+    "Verdict": "PASS",
+    "Note": ""
+  },
+  {
+    "Id": "TN19",
+    "From": "app/bff-b",
+    "To": "istiod (Envoy xDS 동기화, :15021 ready)",
+    "Expect": "200",
+    "Observed": "200",
+    "Verdict": "PASS",
+    "Note": "Pod 기동 2026-11-24T04:51:37Z"
+  },
+  {
+    "Id": "TN20",
+    "From": "app/bff-b",
+    "To": "mcr.microsoft.com:443 (인터넷)",
+    "Expect": "연결 성공(≠000)",
+    "Observed": "200",
+    "Verdict": "PASS",
+    "Note": "curl rc=0"
+  },
+  {
+    "Id": "TN21",
+    "From": "app/bff-b",
+    "To": "자기 노드 10.50.4.6:10250 (kubelet)",
+    "Expect": "연결 성공(≠000)",
+    "Observed": "401",
+    "Verdict": "PASS",
+    "Note": "자기 노드 aks-userz1-15001910-vmss000000; 대조군 nomesh/probe=401; curl rc=0"
+  },
+  {
+    "Id": "TN22",
+    "From": "app/bff-b",
+    "To": "다른 노드 10.50.4.5:10250 (kubelet)",
+    "Expect": "연결 성공(≠000)",
+    "Observed": "401",
+    "Verdict": "PASS",
+    "Note": "다른 노드 aks-system-11774125-vmss000000; 대조군 nomesh/probe=401; curl rc=0"
+  },
+  {
+    "Id": "TS1",
+    "From": "—",
+    "To": "scale/hpa-demo (minReplicas 5→2)",
+    "Expect": "5→4→3→2, 간격 ≥55초",
+    "Observed": "5,4,3,2 (간격 61,61초)",
+    "Verdict": "PASS",
+    "Note": "5→4→3→2 순서로 감소, 간격 61,61초; 패치→첫 감소 10초(판정 외); 표본 27개/5초"
+  },
+  {
+    "Id": "TS2",
+    "From": "—",
+    "To": "scale/hpa-demo 영역 분포(DoNotSchedule, minDomains 3)",
+    "Expect": "기록(판정 없음)",
+    "Observed": "축소 전 1/2/2 → 축소 후 0/1/1",
+    "Verdict": "INFO",
+    "Note": "축소 후 영역별 Pod 수 차이 1 (Running 2); Pod 2개·영역 3개라 빈 영역 1개는 필연. 축소 때 지울 Pod 선택은 TS3 에서 판정"
+  },
+  {
+    "Id": "TS3",
+    "From": "—",
+    "To": "scale/hpa-demo (5·9·12개 → minReplicas 3, 각 2회)",
+    "Expect": "삭제된 Pod = ReplicaSet 삭제 규칙 예측",
+    "Observed": "5개 2/2/1→1/1/1, 5개 2/2/1→1/1/1, 9개 3/3/3→1/1/1, 9개 3/3/3→1/1/1, 12개 4/4/4→1/1/1, 12개 4/4/4→1/1/1",
+    "Verdict": "PASS",
+    "Note": "삭제 34건 모두 ReplicaSet 규칙 예측과 일치(로그 구간 경계·완전 동률로 후보 2개 이상 26건 포함); 한 번에 2개 삭제 1회; 사용자 노드 1/1/1"
+  },
+  {
+    "Id": "TS4",
+    "From": "—",
+    "To": "사용자 노드 풀 userz1/userz2/userz3",
+    "Expect": "확장 후 영역별 노드 수 차이 ≤1",
+    "Observed": "영역1=2, 영역2=2, 영역3=2",
+    "Verdict": "PASS",
+    "Note": "영역별 노드 수 차이 0 ≤ 1 (영역1=2, 영역2=2, 영역3=2); 확장 전 영역1=1, 영역2=1, 영역3=1; Running 6/6, 124초; TriggeredScaleUp: pod triggered scale-up: [{aks-userz3-38667051-vmss 1->2 (max: 3)} {aks-userz1-15001910-vmss 1->2 (max: 3)} {aks-userz2-24788361-vmss 1->2 (max: 3)}]; 설정: balanceSimilarNodeGroups=true; userz1=1, userz2=2, userz3=3"
+  },
+  {
+    "Id": "TS5",
+    "From": "—",
+    "To": "scale/zone-spread 6개(DoNotSchedule, minDomains 3)",
+    "Expect": "Pod 2/2/2, Pending 없음",
+    "Observed": "Pod 2/2/2, 노드 1/1/1→2/2/2",
+    "Verdict": "PASS",
+    "Note": "영역별 Pod 수 차이 0 ≤ 1 (Pod 영역1=2, 영역2=2, 영역3=2); Running 6/6, 126초; TriggeredScaleUp: pod triggered scale-up: [{aks-userz3-38667051-vmss 1->2 (max: 3)}] / pod triggered scale-up: [{aks-userz2-24788361-vmss 1->2 (max: 3)}]"
+  }
+]

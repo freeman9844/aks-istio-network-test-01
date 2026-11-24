@@ -1,0 +1,9 @@
+{
+  "private_enabled": true,
+  "public_fqdn_enabled": false,
+  "vm_ips": [
+    "10.50.4.4"
+  ],
+  "readyz_ok": true,
+  "fqdn": "<cluster>.<guid>.privatelink.koreacentral.azmk8s.io"
+}

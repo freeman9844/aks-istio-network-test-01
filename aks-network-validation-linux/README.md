@@ -128,10 +128,9 @@ local/run.sh verify                # 약 110분(TS5 의 CAS 축소 대기 약 40
 `/readyz` 가 `ok`(대조군), 로컬에서는 해석 실패 또는 접속 실패여야 PASS 입니다. 로컬 확인은 `run.sh verify` 가 끝난 뒤 로컬에서 수행해 결과에 합칩니다.
 로컬이 VPN·피어링으로 VNet 에 닿아 접속에 성공하면 INCONCLUSIVE 입니다.
 
-## 최신 결과(2026-11-20, koreacentral)
+## 최신 결과(2026-11-24, koreacentral)
 
-**26 PASS + TS2 INFO.** 네트워크 항목(TN1~TN22)은 `app-egress-nodes` 를 추가한 뒤 새 클러스터에서 `--only network`(`20261120-082121`)로 실행한 결과이고,
-스케일 항목(TS1·TS4)은 이전 전체 실행(`20261120-050457`) 결과입니다. 이번 변경은 app 네임스페이스 egress 정책만 다루므로 스케일 항목은 다시 실행하지 않았습니다.
+**26 PASS + TS2 INFO.** 검증 ID를 TN#·TS#로 다시 매긴 뒤 새 클러스터에서 전체(`local/run.sh verify`, `20261124-061859`)를 다시 실행한 결과입니다.
 
 | Id | From | To | Observed | Verdict | Note |
 |---|---|---|---|---|---|
@@ -157,11 +156,11 @@ local/run.sh verify                # 약 110분(TS5 의 CAS 축소 대기 약 40
 | TN20 | app/bff-b | mcr.microsoft.com:443 | 200 | PASS |  |
 | TN21 | app/bff-b | 자기 노드 :10250 (kubelet) | 401 | PASS | 대조군 nomesh/probe=401 |
 | TN22 | app/bff-b | 다른 노드 :10250 (kubelet) | 401 | PASS | 대조군 nomesh/probe=401 |
-| TS1 | — | hpa-demo minReplicas 5→2 | 5,4,3,2 (61·62초 간격) | PASS |  |
+| TS1 | — | hpa-demo minReplicas 5→2 | 5,4,3,2 (61·61초 간격) | PASS |  |
 | TS2 | — | hpa-demo 영역 분포 | 1/2/2 → 0/1/1 | INFO | Pod 2개·영역 3개 |
-| TS3 | — | hpa-demo 5·9·12개 → minReplicas 3, 각 2회 | 2/2/1·3/3/3·4/4/4 → 6회 모두 1/1/1 | PASS | 삭제 34건 모두 ReplicaSet 삭제 규칙 예측과 일치(로그 구간 경계·완전 동률로 후보 2개 이상 20건, Ready 동률 비이행 비교 5건, 한 번에 2개 삭제 1회). 1/1/1 은 영역당 노드 1개에서 노드 혼잡 규칙이 작동한 결과이며, 축소 뒤 영역 균등은 보장되지 않음(2026-11-22 재테스트) |
-| TS4 | — | userz1/2/3 | 노드 1/1/1 → 2/2/2 | PASS | balanceSimilarNodeGroups=true |
-| TS5 | — | zone-spread 6개 | Pod 2/2/2, 노드 1/1/1 → 2/2/2 | PASS | Running 6/6, 110초 |
+| TS3 | — | hpa-demo 5·9·12개 → minReplicas 3, 각 2회 | 2/2/1·3/3/3·4/4/4 → 6회 모두 1/1/1 | PASS | 삭제 34건 모두 ReplicaSet 삭제 규칙 예측과 일치(로그 구간 경계·완전 동률로 후보 2개 이상 26건, 한 번에 2개 삭제 1회). 1/1/1 은 영역당 노드 1개에서 노드 혼잡 규칙이 작동한 결과이며, 축소 뒤 영역 균등은 보장되지 않음 |
+| TS4 | — | userz1/2/3 | 노드 1/1/1 → 2/2/2 | PASS | balanceSimilarNodeGroups=true, Running 6/6, 124초 |
+| TS5 | — | zone-spread 6개 | Pod 2/2/2, 노드 1/1/1 → 2/2/2 | PASS | Running 6/6, 126초 |
 
 ## 문제 해결
 

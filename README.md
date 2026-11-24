@@ -146,7 +146,7 @@ AKS Azure CNI powered by Cilium은 기본 설정(`policy-cidr-match-mode` 미설
 
 ## 테스트 매트릭스와 실측 결과
 
-네트워크 항목(TN1~TN22)은 `app-egress-nodes`를 추가한 뒤 새 클러스터에서 `--only network`로 실행한 [`evidence/linux/04-node-egress-fix_20261120-082121.md`](evidence/linux/04-node-egress-fix_20261120-082121.md), 스케일 항목(TS1·TS2·TS4·TS5)은 전체 실행 [`evidence/linux/01-full-run_20261120-050457.md`](evidence/linux/01-full-run_20261120-050457.md), TS3은 코드 리뷰 수정 후 새 클러스터에서 `--only floor`로 다시 실행한 [`evidence/linux/06-ts3-rules_20261122-114525.md`](evidence/linux/06-ts3-rules_20261122-114525.md)(2026-11-22) 결과입니다. 이번 변경은 app 네임스페이스 egress 정책만 다루므로 스케일 항목은 다시 실행하지 않았습니다.
+검증 ID를 TN#·TS#로 다시 매긴 뒤 새 클러스터에서 전체(`local/run.sh verify`)를 다시 실행한 [`evidence/linux/07-full-run-renumbered_20261124-061859.md`](evidence/linux/07-full-run-renumbered_20261124-061859.md)(2026-11-24) 결과입니다. 이전 결과(네트워크 04, 스케일 01·06)와 판정이 같습니다.
 
 | ID | 출발 → 대상 | 검증 통제 | 기대 | 실측 | 판정 |
 |---|---|---|---|---|---|
@@ -162,6 +162,8 @@ AKS Azure CNI powered by Cilium은 기본 설정(`policy-cidr-match-mode` 미설
 | TN10 | web-a → web-b(Gateway 우회) | AuthZ: Gateway SA만 허용 | 403 | 403 | PASS |
 | TN11 | web-a → Blob PE | web 네임스페이스 NetworkPolicy로 Tier 3 차단 | TLS 실패 | 000, DNS=10.50.2.4, rc=28 | PASS |
 | TN12 | bff-b → Blob PE(10.50.2.4) | bff-b 전용 PE 허용 | TLS 성공 | 400, DNS=10.50.2.4 | PASS |
+| TN13 | kubelet → web·bff readinessProbe | Istio probe rewrite(STRICT mTLS) | rewrite 후 Ready | Ready 4/4, `15020 /app-health/app/readyz` 4/4 | PASS |
+| TN14 | vm-mgmt + 로컬 → API 서버 :443 | Private Cluster | 사설 IP로만 해석·접근, 로컬 접근 불가 | private=True, publicFqdn=False, vm=10.50.4.4, readyz=ok, 로컬 NXDOMAIN | PASS |
 | TN15 | bff-a → Blob PE(10.50.2.4) | 다른 Pod의 PE는 차단(대조군 TN12) | TLS 실패 | 000, DNS=10.50.2.4, rc=28 | PASS |
 | TN16 | bff-a → Blob2 PE(10.50.2.5) | bff-a 전용 PE 허용 | TLS 성공 | 400, DNS=10.50.2.5 | PASS |
 | TN17 | bff-b → Blob2 PE(10.50.2.5) | 다른 Pod의 PE는 차단(대조군 TN16) | TLS 실패 | 000, DNS=10.50.2.5, rc=28 | PASS |
@@ -170,13 +172,11 @@ AKS Azure CNI powered by Cilium은 기본 설정(`policy-cidr-match-mode` 미설
 | TN20 | bff-b → mcr.microsoft.com:443 | 기본 egress 유지(인터넷) | 연결 성공 | 200 | PASS |
 | TN21 | bff-b → 자기 노드 :10250(kubelet) | 기본 egress 유지(노드) | 연결 성공(≠000) | 401, 대조군 probe 401 | PASS |
 | TN22 | bff-b → 다른 노드 :10250(kubelet) | 기본 egress 유지(노드) | 연결 성공(≠000) | 401, 대조군 probe 401 | PASS |
-| TS1 | HPA minReplicas 5 → 2 | scaleDown Pods 1 / 60s | 5→4→3→2, 간격 55초 이상 | 5,4,3,2, 간격 61초·62초 | PASS |
+| TS1 | HPA minReplicas 5 → 2 | scaleDown Pods 1 / 60s | 5→4→3→2, 간격 55초 이상 | 5,4,3,2, 간격 61초·61초 | PASS |
 | TS2 | TS1 축소 전·후 `hpa-demo` 분포 | 2개로 줄인 뒤 분포 기록 | 기록(판정 없음) | 1/2/2 → 0/1/1 | INFO |
-| TS3 | `hpa-demo` 5·9·12개 → minReplicas 3, 각 2회 | 축소 대상 Pod 선택(ReplicaSet 삭제 규칙) | 지워진 Pod = 규칙 예측 | 2/2/1·3/3/3·4/4/4 → 6회 모두 1/1/1, 삭제 34건 모두 예측과 일치(후보 2개 이상 20건, Ready 동률 비이행 비교 5건, 한 번에 2개 삭제 1회) | PASS |
-| TS4 | `zone-fill` 6개 | CAS 영역 균형 | 영역별 노드 차이 1 이하 | 1/1/1 → 2/2/2, 108초 만에 6개 모두 Running | PASS |
-| TS5 | `zone-spread` 6개(DoNotSchedule, minDomains 3) | 강제 분산 + CAS | Pod 2/2/2, Pending 없음 | Pod 2/2/2, 노드 1/1/1 → 2/2/2, 110초 | PASS |
-| TN13 | kubelet → web·bff readinessProbe | Istio probe rewrite(STRICT mTLS) | rewrite 후 Ready | Ready 4/4, `15020 /app-health/app/readyz` 4/4 | PASS |
-| TN14 | vm-mgmt + 로컬 → API 서버 :443 | Private Cluster | 사설 IP로만 해석·접근, 로컬 접근 불가 | private=True, publicFqdn=False, vm=10.50.4.4, readyz=ok, 로컬 NXDOMAIN | PASS |
+| TS3 | `hpa-demo` 5·9·12개 → minReplicas 3, 각 2회 | 축소 대상 Pod 선택(ReplicaSet 삭제 규칙) | 지워진 Pod = 규칙 예측 | 2/2/1·3/3/3·4/4/4 → 6회 모두 1/1/1, 삭제 34건 모두 예측과 일치(후보 2개 이상 26건, 한 번에 2개 삭제 1회) | PASS |
+| TS4 | `zone-fill` 6개 | CAS 영역 균형 | 영역별 노드 차이 1 이하 | 1/1/1 → 2/2/2, 124초 만에 6개 모두 Running | PASS |
+| TS5 | `zone-spread` 6개(DoNotSchedule, minDomains 3) | 강제 분산 + CAS | Pod 2/2/2, Pending 없음 | Pod 2/2/2, 노드 1/1/1 → 2/2/2, 126초 | PASS |
 
 TS4의 근거는 TriggeredScaleUp 이벤트 1건입니다. 한 번의 확장에서 `userz1/2/3 1->2`가 함께 일어났습니다. 이벤트는 Pod별로 중복 제거되어 일부만 보일 수 있으므로 TS5는 Pod·노드 수로만 판정합니다.
 
