@@ -28,7 +28,7 @@ vnet-aksnetval 10.50.0.0/16 (koreacentral)
 run.sh <단계>   ─ 코드 번들 업로드(sha256 확인) → systemd-run 으로 시작 → 로그 폴링 → 결과 회수
                                                01-infra.sh   NSG·Storage 2·PE 2(고정 IP)·VM 2·Private AKS·풀
                                                02-apply.sh   Istio 내부 Gateway, 매니페스트, NetworkPolicy
-                                               03-verify.sh  TN1~TN22·TS1~TS5 → results/<시각>.json·.md
+                                               03-verify.sh  TN1~TN22·TS1~TS6 → results/<시각>.json·.md
 99-cleanup.sh    로컬에서 RG 삭제
 ```
 
@@ -49,12 +49,12 @@ cd aks-network-validation-linux
 local/00-bootstrap.sh --force      # 구독 확인 프롬프트 생략. 대화형이면 --force 없이 실행
 local/run.sh infra                 # 약 25분(AKS·노드 풀 생성)
 local/run.sh apply                 # 약 5분
-local/run.sh verify                # 약 110분(TS5 의 CAS 축소 대기 약 40분 + TS3 축소 6회 약 70분)
+local/run.sh verify                # 약 150분(TS5 의 CAS 축소 대기 약 40분 + TS3 축소 6회 약 70분 + TS6 축소 4회 약 40분)
 ```
 
 - 모든 단계는 멱등입니다. 실패하면 원인을 고친 뒤 **그 단계만** 다시 실행합니다.
 - 같은 단계가 이미 VM 에서 실행 중이면 새로 시작하지 않고 기존 실행의 진행만 따라갑니다.
-- `--only all|network|hpa|floor|zone|spread`: 검증 일부만 실행합니다(`network` 는 TN1~TN22, 약 6분).
+- `--only all|network|hpa|floor|zone|spread|zonal`: 검증 일부만 실행합니다(`network` 는 TN1~TN22 약 6분, `zonal` 은 TS6 약 40분).
 - `--poll <초>`: 진행 로그 조회 간격(기본 30초).
 
 ## 테스트 목록
@@ -96,6 +96,16 @@ local/run.sh verify                # 약 110분(TS5 의 CAS 축소 대기 약 40
 | TS3 | hpa-demo 5·9·12개 → minReplicas 3, 각 2회 | 삭제된 Pod = ReplicaSet 삭제 규칙 예측 | 축소 때 어떤 Pod 가 지워지는지(영역 균등은 보장 대상 아님) |
 | TS4 | zone-fill 6개 | 영역별 노드 차이 ≤1 | CAS 영역 균형 확장 |
 | TS5 | zone-spread 6개(DoNotSchedule, minDomains 3) | Pod 2/2/2, Pending 없음 | 영역 강제 분산 + CAS |
+| TS6 | hpa-z1·z2·z3(영역별 풀 고정 Deployment) 3·4개 → minReplicas 1, 각 2회 | 축소 중 영역별 Running ≥1, 최종 1/1/1 | 영역별 Deployment 로 축소 뒤 영역당 최소 1개 보장 |
+
+### TS6: 영역별 Deployment
+
+hpa-demo 하나로는 축소 뒤 영역 분포를 보장하지 못합니다(TS2·TS3). 분산 제약은 배치 때만 적용되고, 지울 Pod 는 ReplicaSet 규칙이 고르기 때문입니다.
+TS6 은 영역에 고정된 사용자 풀(`userz1/2/3`)마다 Deployment·HPA(`hpa-z1~3`, `nodeSelector: kubernetes.azure.com/agentpool`)를 따로 두어,
+각 HPA 의 `minReplicas: 1` 이 곧 영역별 최소 1개가 되게 합니다. 5초마다 영역별 Running 을 기록해, 한 번이라도 0인 영역이 있거나 다른 영역 노드에 뜬 Pod 가 있으면 FAIL 입니다.
+원시 표본은 `results/<시각>.ts6-rounds.json` 으로 회수합니다.
+
+- 트레이드오프: HPA 가 영역마다 따로 돌아 영역 간 부하를 나누지 않습니다(한 영역만 부하가 높아도 그 영역만 늘어남). 최소 Pod 수는 3의 배수가 되고, 서비스는 `group` 라벨처럼 공통 라벨로 묶어야 합니다.
 
 ### app 네임스페이스 PE egress 분리(TN15~TN22)
 
@@ -161,6 +171,12 @@ local/run.sh verify                # 약 110분(TS5 의 CAS 축소 대기 약 40
 | TS3 | — | hpa-demo 5·9·12개 → minReplicas 3, 각 2회 | 2/2/1·3/3/3·4/4/4 → 6회 모두 1/1/1 | PASS | 삭제 34건 모두 ReplicaSet 삭제 규칙 예측과 일치(로그 구간 경계·완전 동률로 후보 2개 이상 26건, 한 번에 2개 삭제 1회). 1/1/1 은 영역당 노드 1개에서 노드 혼잡 규칙이 작동한 결과이며, 축소 뒤 영역 균등은 보장되지 않음 |
 | TS4 | — | userz1/2/3 | 노드 1/1/1 → 2/2/2 | PASS | balanceSimilarNodeGroups=true, Running 6/6, 124초 |
 | TS5 | — | zone-spread 6개 | Pod 2/2/2, 노드 1/1/1 → 2/2/2 | PASS | Running 6/6, 126초 |
+
+### TS6 추가 실행(2026-11-25, `local/run.sh verify --only zonal`, `20261125-115943`)
+
+| Id | From | To | Observed | Verdict | Note |
+|---|---|---|---|---|---|
+| TS6 | — | hpa-z1·z2·z3 3·4개 → minReplicas 1, 각 2회 | 3/3/3→1/1/1, 3/3/3→1/1/1, 4/4/4→1/1/1, 4/4/4→1/1/1 | PASS | 표본 334개(5초 간격) 모두 영역별 Running ≥1, 영역 불일치 0. 영역마다 동시에 1개씩 줄어 3/3/3→2/2/2→1/1/1, 4/4/4→3/3/3→2/2/2→1/1/1 |
 
 ## 문제 해결
 

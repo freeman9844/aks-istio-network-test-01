@@ -16,6 +16,7 @@ from aksnetval.kube import (
     rs_delete_times,
     rs_pod_snapshot,
     scale_event_note,
+    zonal_counts,
 )
 
 
@@ -184,3 +185,25 @@ def test_rs_delete_times_from_watch_rows():
         {"name": "p2", "time": "2026-11-20T01:02:00Z"},
         {"name": "p3", "time": "2026-11-20T01:03:00Z"},
     ]
+
+
+# TS6: 영역별 Deployment(hpa-z1~3) 집계
+def _zpod(name, node, zone, phase="Running", deleting=False):
+    p = _pod(name, node, phase=phase, deleting=deleting, probe=None)
+    p["metadata"]["labels"] = {"group": "hpa-zonal", "zone": zone}
+    return p
+
+
+def test_zonal_counts_excludes_deleting():
+    pods = {"items": [_zpod("a", "n1", "1"), _zpod("b", "n4", "1", deleting=True), _zpod("c", "n2", "2"), _zpod("d", "n3", "3")]}
+    r = zonal_counts(NODES, pods)
+    assert r["counts"] == {"1": 1, "2": 1, "3": 1}
+    assert r["mismatch"] == 0
+
+
+def test_zonal_counts_mismatch():
+    pods = {"items": [_zpod("a", "n1", "2"), _zpod("b", "n3", "3"), _zpod("c", None, "1", phase="Pending")]}
+    r = zonal_counts(NODES, pods)
+    assert r["mismatch"] == 1
+    assert r["pending"] == 1
+    assert r["counts"] == {"1": 1, "2": 0, "3": 1}

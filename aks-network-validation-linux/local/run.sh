@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 로컬 얇은 실행기: run.sh <infra|apply|verify> [--only all|network|hpa|floor|zone|spread] [--poll N]
+# 로컬 얇은 실행기: run.sh <infra|apply|verify> [--only all|network|hpa|floor|zone|spread|zonal] [--poll N]
 # 코드 번들을 vm-mgmt 에 올리고 단계 스크립트를 systemd-run 으로 백그라운드 실행한 뒤 로그를 따라간다.
 # 같은 단계가 이미 실행 중이면 새로 시작하지 않고 따라가기만 한다(로컬 세션이 끊겨도 다시 실행하면 이어 봄).
 set -euo pipefail
@@ -12,7 +12,7 @@ source "$ROOT/config.sh"
 source "$HERE/lib/vmexec.sh"
 
 usage() {
-  echo "사용법: $0 <infra|apply|verify> [--only all|network|hpa|floor|zone|spread] [--poll 초]" >&2
+  echo "사용법: $0 <infra|apply|verify> [--only all|network|hpa|floor|zone|spread|zonal] [--poll 초]" >&2
   exit 2
 }
 
@@ -32,7 +32,7 @@ while [[ $# -gt 0 ]]; do
     *) usage ;;
   esac
 done
-case "$ONLY" in all | network | hpa | floor | zone | spread) ;; *) usage ;; esac
+case "$ONLY" in all | network | hpa | floor | zone | spread | zonal) ;; *) usage ;; esac
 [[ "${POLL:-30}" =~ ^[0-9]+$ ]] || usage
 export POLL="${POLL:-30}"
 
@@ -81,6 +81,12 @@ if [[ "$STAGE" == 03-verify ]]; then
     fetch_file "$VM_ROOT/state/tn14-vm.json" "$results/$name.tn14-vm.json"
     fqdn="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["fqdn"])' "$results/$name.tn14-vm.json")"
     (cd "$ROOT" && python3 -m aksnetval.report merge-tn14 "$results/$name.json" "$results/$name.tn14-vm.json" "$fqdn") >/dev/null
+  fi
+  if [[ "$ONLY" == all || "$ONLY" == zonal ]]; then
+    # 03-verify 가 TS6 시작 때 지우고 4회 모두 끝나면 쓰므로, 있으면 이번 실행 것이다
+    if ! fetch_file "$VM_ROOT/state/ts6-rounds.json" "$results/$name.ts6-rounds.json"; then
+      echo "경고: TS6 원시 표본(state/ts6-rounds.json)이 없거나 가져오지 못했습니다" >&2
+    fi
   fi
   (cd "$ROOT" && python3 - "$results/$name.json" <<'PY'
 import collections, json, sys

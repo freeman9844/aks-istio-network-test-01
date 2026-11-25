@@ -18,6 +18,7 @@ from aksnetval.verdict import (
     rs_victims,
     started_after,
     tls_verdict,
+    zonal_floor_verdict,
     node_reach_verdict,
     zone_balance_verdict,
 )
@@ -452,3 +453,40 @@ def test_api_private_verdict(over, expected):
 def test_api_private_verdict_observed_format():
     r = api_private_verdict(**_BASE)
     assert r["observed"] == "private=True, publicFqdn=False, vm=10.50.4.5, readyz=ok, local=NXDOMAIN/실패"
+
+# TS6: 영역별 Deployment 축소 중 영역당 Running ≥1
+def _zc(a, b, c, mismatch=0):
+    return {"counts": {"1": a, "2": b, "3": c}, "mismatch": mismatch, "pending": 0}
+
+
+def _zround(start, samples, final=None):
+    return {"start": start, "before": _zc(start, start, start)["counts"], "samples": samples, "final": final or _zc(1, 1, 1)}
+
+
+def test_zonal_floor_pass():
+    rounds = [_zround(n, [_zc(n, n, n), _zc(2, 1, 2), _zc(1, 1, 1)]) for n in (3, 3, 4, 4)]
+    r = zonal_floor_verdict(rounds)
+    assert r["verdict"] == "PASS"
+    assert r["observed"] == "3/3/3→1/1/1, 3/3/3→1/1/1, 4/4/4→1/1/1, 4/4/4→1/1/1"
+    assert "표본 12개" in r["reason"] and "영역 불일치 0" in r["reason"]
+
+
+def test_zonal_floor_fail_on_zero_sample():
+    rounds = [_zround(3, [_zc(3, 3, 3), _zc(0, 2, 2), _zc(1, 1, 1)])]
+    r = zonal_floor_verdict(rounds)
+    assert r["verdict"] == "FAIL"
+    assert "영역1" in r["reason"]
+
+
+def test_zonal_floor_fail_on_mismatch():
+    rounds = [_zround(3, [_zc(3, 3, 3, mismatch=1), _zc(1, 1, 1)])]
+    assert zonal_floor_verdict(rounds)["verdict"] == "FAIL"
+
+
+def test_zonal_floor_inconclusive_not_reached():
+    rounds = [_zround(3, [_zc(3, 3, 3), _zc(2, 1, 1)], final=_zc(2, 1, 1))]
+    assert zonal_floor_verdict(rounds)["verdict"] == "INCONCLUSIVE"
+
+
+def test_zonal_floor_inconclusive_empty():
+    assert zonal_floor_verdict([])["verdict"] == "INCONCLUSIVE"

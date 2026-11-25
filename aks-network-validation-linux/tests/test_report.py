@@ -88,3 +88,9 @@ def test_local_probe_closed_port():
     s.close()
     r = localprobe.probe("127.0.0.1", port, timeout=2)
     assert r == {"ip": "127.0.0.1", "connected": False}
+
+
+def test_order_ts6_after_ts5():
+    rows = [report.row(i, "", "", "", "", "PASS") for i in ("TS6", "TN1", "TA1", "TS5")]
+    data = json.loads(Path(report.save(rows, "/tmp/aksnetval-order", stamp="o3")["json"]).read_text(encoding="utf-8"))
+    assert [r["Id"] for r in data] == ["TN1", "TS5", "TS6", "TA1"]

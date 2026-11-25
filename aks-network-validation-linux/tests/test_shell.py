@@ -168,3 +168,35 @@ def test_config_manifests_dir_is_own_folder(az_stub):
     d = Path(r.stdout.strip())
     assert d == ROOT / "manifests"
     assert (d / "20-istio.yaml").is_file() and (d / "31-app-pe-egress.yaml").is_file()
+
+
+def _fn_body(text, name):
+    fn = text[text.index(f"{name}() {{"):]
+    return fn[:fn.index("\n}\n")]
+
+
+def test_verify_runs_zonal_with_restore():
+    # TS6: --only zonal·all 에서 실행하고, 중단돼도 hpa-z1~3 를 1/1 로 되돌린다
+    body = (ROOT / "vm/03-verify.sh").read_text(encoding="utf-8")
+    assert "all | network | hpa | floor | zone | spread | zonal)" in body
+    assert re.search(r'"\$ONLY" == zonal \]\]; then\n  PENDING_RESTORE=restore_zonal\n  run_test TS6 .* zonal_test\n  restore_zonal\nfi', body)
+    restore = _fn_body(body, "restore_zonal")
+    assert "hpa-z" in restore and '"minReplicas":1,"maxReplicas":1' in restore and 'PENDING_RESTORE=""' in restore
+    zt = _fn_body(body, "zonal_test")
+    assert "wait_cond 600 5 zonal_ready" in zt and "INCONCLUSIVE" in zt
+    assert "ts6-rounds-" in zt and "zonal_floor_verdict" in zt
+
+
+def test_run_sh_accepts_zonal_and_fetches_ts6_rounds():
+    body = (ROOT / "local/run.sh").read_text(encoding="utf-8")
+    assert "all | network | hpa | floor | zone | spread | zonal)" in body
+    assert ".ts6-rounds.json" in body
+
+def test_ts6_raw_file_is_current_run_only():
+    # TS6 이 중단돼도 이전 실행의 원시 표본이 새 결과에 붙지 않도록, 시작 때 state 파일을 지우고 run.sh 는 그 경로만 회수한다
+    body = (ROOT / "vm/03-verify.sh").read_text(encoding="utf-8")
+    zt = _fn_body(body, "zonal_test")
+    assert zt.index('rm -f "$VM_ROOT/state/ts6-rounds.json"') < zt.index("for start in")
+    assert 'cp "$WORK/zonal-rounds.json" "$VM_ROOT/state/ts6-rounds.json"' in zt
+    run = (ROOT / "local/run.sh").read_text(encoding="utf-8")
+    assert '"$VM_ROOT/state/ts6-rounds.json"' in run and "ts6-rounds-*" not in run

@@ -376,6 +376,35 @@ def deletion_rule_verdict(rounds: list[dict], target: int = 3) -> dict:
             "reason": f"삭제 {steps}건 모두 ReplicaSet 규칙 예측과 일치{edge}{batch_text}"}
 
 
+def zonal_floor_verdict(rounds: list[dict]) -> dict:
+    """TS6: 영역별 Deployment 축소 중 모든 표본에서 영역별 Running ≥1, 영역 불일치 0, 최종 1/1/1."""
+    if not rounds:
+        return {"verdict": "INCONCLUSIVE", "observed": "회차 없음", "reason": "측정한 회차 없음"}
+    short = lambda c: "/".join(str(c.get(z, 0)) for z in ("1", "2", "3"))
+    observed, violations, unreached = [], [], []
+    total, low = 0, None
+    for i, rd in enumerate(rounds, 1):
+        observed.append(f"{short(rd['before'])}→{short(rd['final']['counts'])}")
+        for j, s in enumerate(rd["samples"], 1):
+            total += 1
+            c = s["counts"]
+            m = min(c.get(z, 0) for z in ("1", "2", "3"))
+            low = m if low is None else min(low, m)
+            zero = [f"영역{z}" for z in ("1", "2", "3") if c.get(z, 0) < 1]
+            if zero:
+                violations.append(f"{i}회 표본{j} {'·'.join(zero)} Running 0 ({short(c)})")
+            if s.get("mismatch"):
+                violations.append(f"{i}회 표본{j} 영역 불일치 {s['mismatch']}개")
+        if short(rd["final"]["counts"]) != "1/1/1":
+            unreached.append(f"{i}회 최종 {short(rd['final']['counts'])}")
+    obs = ", ".join(observed)
+    if violations:
+        return {"verdict": "FAIL", "observed": obs, "reason": "; ".join(violations[:5])}
+    if not total or unreached:
+        return {"verdict": "INCONCLUSIVE", "observed": obs, "reason": "; ".join(unreached) or "표본 없음"}
+    return {"verdict": "PASS", "observed": obs, "reason": f"표본 {total}개 모두 영역별 Running ≥1(최소 {low}), 영역 불일치 0"}
+
+
 def probe_rewrite_verdict(pods: list[dict]) -> dict:
     # TN13: 각 Pod 의 app 컨테이너 readinessProbe 가 Istio 에 의해 15020 /app-health/ 로 바뀌었고 Ready 인지
     n = len(pods)

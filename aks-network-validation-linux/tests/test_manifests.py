@@ -126,3 +126,35 @@ def test_app_pe_allow_only_own_endpoint(app_pe_policies, name, app, ip):
 
 def test_app_pe_policy_count(app_pe_policies):
     assert set(app_pe_policies) == {"app-egress-default", "allow-bff-b-to-blob", "allow-bff-a-to-blob2"}
+
+
+# ---------- TS6: 영역별 노드 풀에 고정한 영역별 Deployment·HPA ----------
+
+@pytest.fixture(scope="module")
+def scale_docs():
+    yaml = pytest.importorskip("yaml")
+    return [d for d in yaml.safe_load_all(text("40-scale.yaml")) if d]
+
+
+@pytest.mark.parametrize("n", ["1", "2", "3"])
+def test_zonal_deployments(scale_docs, n):
+    dep = next(d for d in scale_docs if d["kind"] == "Deployment" and d["metadata"]["name"] == f"hpa-z{n}")
+    assert dep["metadata"]["namespace"] == "scale"
+    assert "replicas" not in dep["spec"]
+    tpl = dep["spec"]["template"]
+    assert tpl["metadata"]["labels"] == {"group": "hpa-zonal", "zone": n}
+    assert tpl["spec"]["nodeSelector"] == {"kubernetes.azure.com/agentpool": f"userz{n}"}
+    assert tpl["spec"]["serviceAccountName"] == "hpa-zonal"
+    c = tpl["spec"]["containers"][0]
+    assert c["image"] == "registry.k8s.io/pause:3.9" and c["resources"]["requests"]["cpu"] == "100m"
+
+
+def test_zonal_hpas(scale_docs):
+    hpas = {d["metadata"]["name"]: d["spec"] for d in scale_docs if d["kind"] == "HorizontalPodAutoscaler" and d["metadata"]["name"].startswith("hpa-z")}
+    assert set(hpas) == {"hpa-z1", "hpa-z2", "hpa-z3"}
+    for name, spec in hpas.items():
+        assert spec["scaleTargetRef"]["name"] == name
+        assert spec["minReplicas"] == 1 and spec["maxReplicas"] == 1
+        assert spec["metrics"][0]["resource"]["target"]["averageUtilization"] == 70
+        assert spec["behavior"]["scaleDown"]["policies"] == [{"type": "Pods", "value": 1, "periodSeconds": 60}]
+    assert any(d["kind"] == "ServiceAccount" and d["metadata"]["name"] == "hpa-zonal" for d in scale_docs)

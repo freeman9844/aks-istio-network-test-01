@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # vm-mgmt 에서 실행: 검증(기존 03-verify.ps1 이식) + TN14 VM 관측.
-# 사용: vm/03-verify.sh [--only all|network|hpa|floor|zone|spread]
+# 사용: vm/03-verify.sh [--only all|network|hpa|floor|zone|spread|zonal]
 # 결과: $VM_ROOT/results/<stamp>.json·.md, $VM_ROOT/state/latest(stamp), $VM_ROOT/state/tn14-vm.json(TN14 판정은 로컬에서)
 set -euo pipefail
 shopt -s inherit_errexit
@@ -38,7 +38,7 @@ while (($#)); do
   esac
 done
 case "$ONLY" in
-  all | network | hpa | floor | zone | spread) ;;
+  all | network | hpa | floor | zone | spread | zonal) ;;
   *) die "--only 값이 올바르지 않습니다: $ONLY" ;;
 esac
 
@@ -616,6 +616,89 @@ floor_test() {
     "$(join_note "$(jq -r .reason <<<"$fv")" "사용자 노드 $(fmt_short "$(user_zone_counts)")")"
 }
 
+# ---------- 영역별 Deployment 축소(TS6) ----------
+# hpa-demo 하나로는 축소 뒤 영역마다 1개를 보장하지 못한다(TS2·TS3). 영역별 풀(userz1/2/3)에 고정한
+# 영역별 Deployment·HPA(hpa-z1~3)를 같이 줄이면 각 HPA 의 minReplicas 1 이 곧 영역별 최소 1개가 된다.
+
+TS6_STARTS=(3 3 4 4)
+TS6_TO='scale/hpa-z1·z2·z3 (영역별 Deployment, 3·4개 → minReplicas 1, 각 2회)'
+TS6_EXPECT='축소 중 영역별 Running ≥1, 최종 1/1/1'
+
+zonal_set() {
+  local z
+  for z in 1 2 3; do
+    kube_ok patch hpa "hpa-z$z" -n scale --type merge -p "{\"spec\":{\"minReplicas\":$1,\"maxReplicas\":$2}}" >/dev/null
+  done
+}
+
+restore_zonal() {
+  local z ok=1
+  for z in 1 2 3; do
+    kube patch hpa "hpa-z$z" -n scale --type merge -p '{"spec":{"minReplicas":1,"maxReplicas":1}}' >/dev/null 2>&1 || ok=0
+  done
+  if ((ok)); then log 'hpa-z1~3 minReplicas·maxReplicas 1 원복'; else log '경고: hpa-z1~3 원복 실패'; fi
+  PENDING_RESTORE=""
+}
+
+zonal_snapshot() {
+  kube_ok get nodes -o json >"$WORK/nodes.json"
+  kube_ok get pods -n scale -l group=hpa-zonal -o json >"$WORK/zonal-pods.json"
+  py kube zonal_counts "$(jq -cn --arg n "@$WORK/nodes.json" --arg p "@$WORK/zonal-pods.json" '{nodes: $n, pods: $p}')"
+}
+
+# zonal_ready N: 세 Deployment 모두 N개 Ready 이고 영역별 Running N/N/N, 불일치·Pending 0
+zonal_ready() {
+  local z d s
+  for z in 1 2 3; do
+    d="$(kube_ok get deploy "hpa-z$z" -n scale -o json)" || return 1
+    jq -e --argjson n "$1" '.spec.replicas == $n and (.status.readyReplicas // 0) == $n' <<<"$d" >/dev/null || return 1
+  done
+  s="$(zonal_snapshot)" || return 1
+  jq -e --argjson n "$1" '.counts == {"1": $n, "2": $n, "3": $n} and .mismatch == 0 and .pending == 0' <<<"$s" >/dev/null
+}
+
+zonal_test() {
+  local start i=0 before s final deadline reached zv rounds="$WORK/zonal-rounds.jsonl" samples="$WORK/zonal-samples.jsonl"
+  log '== 영역별 Deployment 축소 (TS6) =='
+  # 이번 실행의 원시 표본만 회수되도록 이전 파일을 지운다(중단·INCONCLUSIVE 면 파일 없음)
+  rm -f "$VM_ROOT/state/ts6-rounds.json"
+  : >"$rounds"
+  for start in "${TS6_STARTS[@]}"; do
+    i=$((i + 1))
+    zonal_set "$start" "$start"
+    if ! wait_cond 600 5 zonal_ready "$start"; then
+      add TS6 '—' "$TS6_TO" "$TS6_EXPECT" "${i}회(${start}개) 시작 조건 미충족" INCONCLUSIVE "hpa-z1~3 각 ${start}개 Ready 아님, 10분 대기 초과"
+      return 0
+    fi
+    before="$(zonal_snapshot)"
+    log "  ${i}회(${start}개) 축소 전: Pod $(fmt_short "$(jq -c .counts <<<"$before")"), 노드 $(fmt_short "$(user_zone_counts)")"
+    : >"$samples"
+    zonal_set 1 "$start"
+    deadline=$(($(date +%s) + 1200))
+    reached=0
+    while (($(date +%s) < deadline)); do
+      sleep 5
+      s="$(zonal_snapshot)"
+      printf '%s\n' "$s" >>"$samples"
+      # 1/1/1 에 닿은 뒤에도 10초(표본 2개) 더 본다
+      if jq -e '.counts == {"1": 1, "2": 1, "3": 1}' <<<"$s" >/dev/null; then
+        reached=$((reached + 1))
+        ((reached >= 3)) && break
+      fi
+    done
+    final="$(zonal_snapshot)"
+    log "  ${i}회(${start}개) 축소 후: Pod $(fmt_short "$(jq -c .counts <<<"$final")"), 표본 $(wc -l <"$samples" | tr -d ' ')개 중 영역별 최소 $(jq -s '[.[].counts[]] | min' "$samples")"
+    jq -cn --argjson s "$start" --argjson b "$(jq -c .counts <<<"$before")" --slurpfile x "$samples" --argjson f "$final" \
+      '{start: $s, before: $b, samples: $x, final: $f}' >>"$rounds"
+  done
+  jq -cs '.' "$rounds" >"$WORK/zonal-rounds.json"
+  cp "$WORK/zonal-rounds.json" "$VM_ROOT/results/ts6-rounds-$(date +%Y%m%d-%H%M%S).json"
+  cp "$WORK/zonal-rounds.json" "$VM_ROOT/state/ts6-rounds.json"
+  zv="$(py verdict zonal_floor_verdict "$(jq -cn --arg r "@$WORK/zonal-rounds.json" '{rounds: $r}')")"
+  add TS6 '—' "$TS6_TO" "$TS6_EXPECT" "$(jq -r .observed <<<"$zv")" "$(jq -r .verdict <<<"$zv")" \
+    "$(join_note "$(jq -r .reason <<<"$zv")" "사용자 노드 $(fmt_short "$(user_zone_counts)")" '영역별 HPA 라 영역 간 부하 분산 없음, 최소 Pod 수는 3의 배수')"
+}
+
 # ---------- 영역 균형(TS4) ----------
 
 TS4_TO="사용자 노드 풀 $POOLS_TEXT"
@@ -749,6 +832,11 @@ if [[ "$ONLY" == all || "$ONLY" == spread ]]; then
   PENDING_RESTORE=restore_zone_spread
   run_test TS5 '—' "$TS4B_TO" "$TS4B_EXPECT" spread_test
   restore_zone_spread
+fi
+if [[ "$ONLY" == all || "$ONLY" == zonal ]]; then
+  PENDING_RESTORE=restore_zonal
+  run_test TS6 '—' "$TS6_TO" "$TS6_EXPECT" zonal_test
+  restore_zonal
 fi
 
 saved="$(py report save "$VM_ROOT/results" <"$ROWS")"

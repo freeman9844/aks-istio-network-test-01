@@ -8,7 +8,7 @@ from aksnetval import localprobe
 from aksnetval.verdict import api_private_verdict
 
 COLUMNS = ("Id", "From", "To", "Expect", "Observed", "Verdict", "Note")
-ORDER = [*[f"TN{i}" for i in range(1, 23)], *[f"TS{i}" for i in range(1, 6)]]
+ORDER = [*[f"TN{i}" for i in range(1, 23)], *[f"TS{i}" for i in range(1, 7)]]
 
 
 def row(id, frm, to, expect, observed, verdict, note="") -> dict:  # noqa: A002

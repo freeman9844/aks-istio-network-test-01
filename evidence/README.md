@@ -2,7 +2,7 @@
 
 이 폴더에는 두 실행판의 원본 결과가 있습니다. 메인은 **Linux 관리 VM판**이고, PowerShell판은 이전 판으로 보존합니다.
 
-- [`linux/`](linux/): Linux 관리 VM판(Private Cluster, bash + az CLI), TN1~TN22·TS1~TS5. **26건 PASS + TS2 INFO**(최신: 07, 2026-11-24)
+- [`linux/`](linux/): Linux 관리 VM판(Private Cluster, bash + az CLI), TN1~TN22·TS1~TS6. **27건 PASS + TS2 INFO**(최신: 07 전체 2026-11-24, 08 TS6 2026-11-25)
 - 이 폴더의 `01`~`11`, `logs/`: PowerShell판(공개 API 서버, `03-verify.ps1`), TN1~TN13·TS1~TS5. 17건 PASS + TS2 INFO
 
 증적 파일의 검증 ID와 파일명은 새 번호(네트워크 `TN#`, 스케일링 `TS#`)로 바꿨습니다(2026-11-24). 이전 번호와의 대응은 [루트 README](../README.md#검증-id)를 참고하세요. 측정값·판정은 바꾸지 않았습니다.
@@ -21,8 +21,9 @@
 | 06a | `06a-ts3-predictor-gap_20261122-103327` | 코드 리뷰 수정 후 재빌드, `--only floor`(TS3) | **FAIL**. 12개 축소에서 예측 후보에 없던 Pod가 먼저 삭제됨. 클러스터 이상이 아니라 판정기 한계(삽입 정렬에서 동률이 사슬로 이어지는 경우를 한 단계만 고려). 판정기를 고친 뒤 같은 원시 데이터(`.rounds.json`)로 재판정하면 PASS |
 | 06 | `06-ts3-rules_20261122-114525` | 판정기 수정 후 `--only floor`(TS3) 재실행 | 2/2/1·3/3/3·4/4/4 → 6회 모두 1/1/1, 삭제 34건 모두 예측과 일치(후보 2개 이상 20건, Ready 동률 비이행 비교 5건, 한 번에 2개 삭제 1회) → **PASS**. 이 실행의 원시 `.rounds.json`은 VM 삭제 전에 회수하지 못해 판정 결과(`.md`·`.json`)만 보관 |
 | 07 | `07-full-run-renumbered_20261124-061859` | 검증 ID 재번호(TN#·TS#) 후 새 클러스터에서 전체 실행 | **26건 PASS + TS2 INFO**. 결과가 TN1~TN22 → TS1~TS5 순으로 기록됨. TS3 6회 모두 1/1/1, 삭제 34건 모두 예측과 일치(후보 2개 이상 26건, 한 번에 2개 삭제 1회). 원시 `.rounds.json` 포함 |
+| 08 | `08-ts6-zonal_20261125-115943` | TS6 추가 후 새 클러스터에서 `--only zonal`(TS6) | 영역별 Deployment·HPA `hpa-z1~3`을 3/3/3 → 1/1/1 2회, 4/4/4 → 1/1/1 2회 축소. 5초 표본 334개 모두 영역별 Running ≥1, 영역 불일치 0 → **PASS**. 원시 `.rounds.json` 포함 |
 
-종합 **26건 PASS + TS2 INFO**는 네트워크 항목은 04, 스케일 항목은 TS1·TS2·TS4·TS5가 01, TS3이 06(2026-11-22 재테스트)의 결과입니다.
+종합 **27건 PASS + TS2 INFO**는 07(2026-11-24 전체 재실행, 26건 PASS + TS2 INFO)과 08(2026-11-25 TS6 PASS)의 결과입니다.
 
 ### linux/logs/
 

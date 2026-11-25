@@ -55,6 +55,24 @@ def pod_zone_counts(nodes: dict, pods: dict) -> dict:
     return {"counts": counts, "running": running, "pending": pending, "names": names}
 
 
+def zonal_counts(nodes: dict, pods: dict) -> dict:
+    """TS6: 영역별 Deployment Pod 의 노드 영역별 Running 수와, 라벨 zone 과 노드 영역이 다른 Pod 수."""
+    zone_of = _zone_of(nodes)
+    counts = {z: 0 for z in ZONES}
+    mismatch = pending = 0
+    for p in _alive(pods.get("items", [])):
+        phase = p.get("status", {}).get("phase")
+        node_zone = zone_of.get(p.get("spec", {}).get("nodeName", ""), "")
+        want = p.get("metadata", {}).get("labels", {}).get("zone", "")
+        if node_zone and want and node_zone != want:
+            mismatch += 1
+        if phase == "Pending":
+            pending += 1
+        elif phase == "Running" and node_zone in counts:
+            counts[node_zone] += 1
+    return {"counts": counts, "mismatch": mismatch, "pending": pending}
+
+
 def probe_items(pods: dict, ns: str) -> list[dict]:
     out = []
     for p in _alive(pods.get("items", [])):
