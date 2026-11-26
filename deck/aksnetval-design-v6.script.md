@@ -17,7 +17,7 @@ https://learn.microsoft.com/azure/virtual-machines/linux/run-command
 https://learn.microsoft.com/azure/aks/istio-deploy-ingress
 
 
-## 2. 검증 매트릭스 — T1~T23, 차단 테스트마다 허용 대조군
+## 2. 검증 매트릭스 — T1\~T23, 차단 테스트마다 허용 대조군
 _1분 31초 · 623자_
 
 앞 장 그림의 경로를 검증 ID 단위로 정리한 표입니다. vm-mgmt 안의 스크립트가 이 순서대로 실행하고, 판정은 Python이 자동으로 PASS, FAIL, INCONCLUSIVE를 매깁니다.
@@ -38,12 +38,12 @@ _1분 32초 · 583자_
 여기서 주의할 점이 두 가지 있어요. 안정화 창 300초는 이번 범위가 아니라서, 패치 직후에 바로 축소가 시작될 수 있습니다. 그리고 PDB는 HPA 축소에 적용되지 않고 드레인 같은 eviction에만 동작하죠.
 오른쪽은 영역 균형입니다. 영역 1, 2, 3에 사용자 풀을 하나씩 두고 각각 1대에서 3대로 오토스케일합니다. zone-fill Pod는 하나가 노드 한 대를 차지하도록 800m를 잡고, 분산 제약은 일부러 뺐습니다. 그래야 스케줄러가 아니라 CAS의 balance-similar-node-groups 효과만 볼 수 있으니까요. 영역별 노드 차이가 1 이하면 PASS이고, 축소할 때 분포는 공식 보장이 아니라서 관찰만 합니다. 여기까지가 설계였고요, 다음 장부터는 Private AKS에서 실제로 돌린 네트워크 결과를 보겠습니다.
 
-> 출처: 설계 문서: docs/superpowers/specs/2026-11-20-aks-network-validation-linux-mgmt-vm-design.md (5.5 T1~T14 판정 규칙 유지)
+> 출처: 설계 문서: docs/superpowers/specs/2026-11-20-aks-network-validation-linux-mgmt-vm-design.md (5.5 T1\~T14 판정 규칙 유지)
 https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/#configurable-scaling-behavior
 https://learn.microsoft.com/azure/aks/cluster-autoscaler
 
 
-## 4. 결과 ① 네트워크 통제 — T1~T11·T14 13건 모두 PASS
+## 4. 결과 ① 네트워크 통제 — T1\~T11·T14 13건 모두 PASS
 _1분 29초 · 622자_
 
 여기서부터는 실제 결과입니다. 앞에서 본 매트릭스를 koreacentral의 Private AKS에 올려서, vm-mgmt 안에서 자동 판정한 표인데요. T1부터 T11까지 대조군 T2c를 포함한 12건과 T14까지 13건이 모두 PASS였습니다. 표는 network 항목만 다시 돌린 재실행 결과이고, 전체 실행과 판정이 같습니다.

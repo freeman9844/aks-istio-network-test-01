@@ -35,7 +35,7 @@ README: aks-network-validation-linux/README.md (테스트 목록)
 https://istio.io/latest/docs/ops/configuration/traffic-management/protocol-selection/
 
 
-## 4. 결과 ① 네트워크 통제 — T1~T11·T14 13건 모두 PASS
+## 4. 결과 ① 네트워크 통제 — T1\~T11·T14 13건 모두 PASS
 _1분 26초 · 606자_
 
 앞 장 매트릭스를 koreacentral의 Private AKS에 올려서, vm-mgmt 안에서 자동 판정한 표인데요. T1부터 T11까지 대조군 T2c를 포함한 12건과 T14까지 13건이 모두 PASS였습니다. 표는 network 항목만 다시 돌린 재실행 결과이고, 전체 실행과 판정이 같습니다.
@@ -84,7 +84,7 @@ _18초 · 110자_
 
 두 번째 파트는 스케일링 검증입니다. HPA가 정해진 속도로만 줄어드는지, CAS가 세 영역을 고르게 늘리는지, 그리고 PRD 권장 YAML의 강제 분산이 CAS와 함께 동작하는지 보겠습니다. 모두 다섯 항목이고, 그중 T12b는 기록용 INFO예요.
 
-## 8. 스케일링 검증 매트릭스 — T12~T13b, 판정 규칙
+## 8. 스케일링 검증 매트릭스 — T12\~T13b, 판정 규칙
 _1분 16초 · 458자_
 
 방금 스케일링 파트를 열었는데요, 이 장은 그 검증 항목과 판정 규칙입니다. 네트워크와 달리 시간이 오래 걸리고, 결과가 시점에 따라 달라질 수 있어서 판정 규칙을 먼저 짚고 가겠습니다.
@@ -103,7 +103,7 @@ _1분 31초 · 575자_
 여기서 주의할 점이 두 가지 있어요. 안정화 창 300초는 이번 범위가 아니라서, 패치 직후에 바로 축소가 시작될 수 있습니다. 그리고 PDB는 HPA 축소에 적용되지 않고 드레인 같은 eviction에만 동작하죠.
 오른쪽은 영역 균형입니다. 영역 1, 2, 3에 사용자 풀을 하나씩 두고 각각 1대에서 3대로 오토스케일합니다. zone-fill Pod는 하나가 노드 한 대를 차지하도록 800m를 잡고, 분산 제약은 일부러 뺐습니다. 그래야 스케줄러가 아니라 CAS의 balance-similar-node-groups 효과만 볼 수 있으니까요. 영역별 노드 차이가 1 이하면 PASS이고, 축소할 때 분포는 공식 보장이 아니라서 관찰만 합니다. 여기까지가 설계였고요, 다음 장에서 Private AKS에서 실제로 돌린 결과를 보겠습니다.
 
-> 출처: 설계 문서: docs/superpowers/specs/2026-11-20-aks-network-validation-linux-mgmt-vm-design.md (5.5 T1~T14 판정 규칙 유지)
+> 출처: 설계 문서: docs/superpowers/specs/2026-11-20-aks-network-validation-linux-mgmt-vm-design.md (5.5 T1\~T14 판정 규칙 유지)
 https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/#configurable-scaling-behavior
 https://learn.microsoft.com/azure/aks/cluster-autoscaler
 

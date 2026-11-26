@@ -5,7 +5,7 @@
 ## 1. 검증 샘플 구성 — Private AKS · NSG · Istio · NetworkPolicy
 _2분 06초 · 949자_
 
-참고로 v10부터 테스트 번호를 네트워크 검증 TN, 스케일링 검증 TS로 나눠 다시 붙였습니다. README와 결과 파일의 이전 번호와는 이렇게 대응합니다. 네트워크는 T1→TN1, T2→TN2, T2c→TN3, T3~T11→TN4~TN12입니다. 이어서 T14→TN13, T15→TN14, T16~T23→TN15~TN22입니다. 스케일링은 T12→TS1, T12b→TS2, T12c→TS3, T13→TS4, T13b→TS5입니다.
+참고로 v10부터 테스트 번호를 네트워크 검증 TN, 스케일링 검증 TS로 나눠 다시 붙였습니다. README와 결과 파일의 이전 번호와는 이렇게 대응합니다. 네트워크는 T1→TN1, T2→TN2, T2c→TN3, T3\~T11→TN4\~TN12입니다. 이어서 T14→TN13, T15→TN14, T16\~T23→TN15\~TN22입니다. 스케일링은 T12→TS1, T12b→TS2, T12c→TS3, T13→TS4, T13b→TS5입니다.
 오늘은 PowerShell판으로 했던 AKS 네트워크 통제 검증을 Linux 관리 VM에서 다시 돌린 결과를 공유드리려고 합니다. 먼저 이 장은 Linux판 구성을 한 장에 그린 그림이에요. 목적은 성능이 아니라, PRD에 적힌 NSG, Istio 인가, NetworkPolicy 규칙이 정말 의도대로 허용하고 차단하는지 보는 겁니다.
 바깥 초록 점선이 VNet 10.50.0.0/16이고, 리소스 그룹은 PowerShell판과 섞이지 않게 rg-aksnetval-linux-krc로 따로 뒀습니다. 왼쪽에는 VM이 세 대 있는데요, vm-appgw-sim은 App Gateway를 대신하는 허용 출발지, vm-other는 막혀야 하는 출발지입니다. 가운데 새로 들어간 vm-mgmt는 snet-mgmt 10.50.3.64/27에 있어요. 모든 생성과 검증을 이 VM 안에서 run-command와 systemd-run으로 실행합니다. 세 VM 모두 공인 IP는 없고, NAT Gateway는 snet-mgmt에만 붙였어요.
 또 하나 바뀐 점은 AKS가 Private Cluster라는 겁니다. API 서버는 노드 서브넷 안의 사설 IP 10.50.4.4로만 열리고 공용 FQDN도 껐는데, 이게 TN14입니다. 그 밖의 Ingress, web과 bff 사이 인가, 교차 403은 기존과 같습니다.
@@ -36,7 +36,7 @@ README: aks-network-validation-linux/README.md (테스트 목록)
 https://istio.io/latest/docs/ops/configuration/traffic-management/protocol-selection/
 
 
-## 4. 결과 ① 네트워크 통제 — TN1~TN13 13건 모두 PASS
+## 4. 결과 ① 네트워크 통제 — TN1\~TN13 13건 모두 PASS
 _1분 27초 · 615자_
 
 앞 장 매트릭스를 koreacentral의 Private AKS에 올려서, vm-mgmt 안에서 자동 판정한 표인데요. TN1부터 TN12까지 대조군 TN3을 포함한 12건과 TN13까지 13건이 모두 PASS였습니다. 표는 network 항목만 다시 돌린 재실행 결과이고, 전체 실행과 판정이 같습니다.
@@ -85,7 +85,7 @@ _18초 · 109자_
 
 두 번째 파트는 스케일링 검증입니다. HPA가 정해진 속도로만 줄어드는지, CAS가 세 영역을 고르게 늘리는지, 그리고 PRD 권장 YAML의 강제 분산이 CAS와 함께 동작하는지 보겠습니다. 모두 다섯 항목이고, 그중 TS2는 기록용 INFO예요.
 
-## 8. 스케일링 검증 매트릭스 — TS1~TS5, 판정 규칙
+## 8. 스케일링 검증 매트릭스 — TS1\~TS5, 판정 규칙
 _1분 15초 · 454자_
 
 방금 스케일링 파트를 열었는데요, 이 장은 그 검증 항목과 판정 규칙입니다. 네트워크와 달리 시간이 오래 걸리고, 결과가 시점에 따라 달라질 수 있어서 판정 규칙을 먼저 짚고 가겠습니다.

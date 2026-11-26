@@ -43,7 +43,7 @@ _1분 51초 · 675자_
 https://learn.microsoft.com/azure/aks/cluster-autoscaler
 
 
-## 4. 결과 ① 네트워크 통제 — T1~T11 12건 모두 PASS
+## 4. 결과 ① 네트워크 통제 — T1\~T11 12건 모두 PASS
 _1분 27초 · 589자_
 
 여기서부터는 실제 결과입니다. 앞에서 본 매트릭스를 koreacentral의 AKS에 그대로 올려서 스크립트로 자동 판정한 표인데요, T1부터 T11까지 대조군 T2c를 포함해 12건이 모두 PASS였습니다.

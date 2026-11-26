@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- 작업 폴더: `aks-network-validation-linux/`. 기존 TS1~TS5 동작은 바꾸지 않는다.
+- 작업 폴더: `aks-network-validation-linux/`. 기존 TS1\~TS5 동작은 바꾸지 않는다.
 - 이름: Deployment·HPA `hpa-z1`, `hpa-z2`, `hpa-z3`; 공통 라벨 `group: hpa-zonal`, 영역 라벨 `zone: "1"|"2"|"3"`; SA `hpa-zonal`; 네임스페이스 `scale`.
 - 배치: `nodeSelector: {kubernetes.azure.com/agentpool: userzN}`. pause:3.9, CPU 요청 100m.
 - HPA: 평소 min=max=1, CPU 70%, scaleDown Pods 1 / 60s, 안정화 기본값.

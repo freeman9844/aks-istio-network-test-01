@@ -54,7 +54,7 @@ local/run.sh verify                # 약 150분(TS5 의 CAS 축소 대기 약 40
 
 - 모든 단계는 멱등입니다. 실패하면 원인을 고친 뒤 **그 단계만** 다시 실행합니다.
 - 같은 단계가 이미 VM 에서 실행 중이면 새로 시작하지 않고 기존 실행의 진행만 따라갑니다.
-- `--only all|network|hpa|floor|zone|spread|zonal`: 검증 일부만 실행합니다(`network` 는 TN1~TN22 약 6분, `zonal` 은 TS6 약 40분).
+- `--only all|network|hpa|floor|zone|spread|zonal`: 검증 일부만 실행합니다(`network` 는 TN1\~TN22 약 6분, `zonal` 은 TS6 약 40분).
 - `--poll <초>`: 진행 로그 조회 간격(기본 30초).
 
 ## 테스트 목록
@@ -64,9 +64,9 @@ local/run.sh verify                # 약 150분(TS5 의 CAS 축소 대기 약 40
 | 이전 | 현재 |
 |---|---|
 | T1·T2·T2c·T3 | TN1·TN2·TN3·TN4 |
-| T4~T11 | TN5~TN12 |
+| T4\~T11 | TN5\~TN12 |
 | T14·T15 | TN13·TN14 |
-| T16~T23 | TN15~TN22 |
+| T16\~T23 | TN15\~TN22 |
 | T12·T12b·T12c·T13·T13b | TS1·TS2·TS3·TS4·TS5 |
 
 | Id | 출발지 → 대상 | 기대 | 확인하는 통제 |
@@ -107,7 +107,7 @@ TS6 은 영역에 고정된 사용자 풀(`userz1/2/3`)마다 Deployment·HPA(`h
 
 - 트레이드오프: HPA 가 영역마다 따로 돌아 영역 간 부하를 나누지 않습니다(한 영역만 부하가 높아도 그 영역만 늘어남). 최소 Pod 수는 3의 배수가 되고, 서비스는 `group` 라벨처럼 공통 라벨로 묶어야 합니다.
 
-### app 네임스페이스 PE egress 분리(TN15~TN22)
+### app 네임스페이스 PE egress 분리(TN15\~TN22)
 
 `manifests/31-app-pe-egress.yaml` 의 NetworkPolicy 3개와 CiliumNetworkPolicy 1개로 구성합니다. 표준 NetworkPolicy 는 허용 규칙의 **합집합**이므로,
 공통 정책에서 PE 서브넷만 빼고 Pod 별로 필요한 PE IP 만 다시 허용합니다.
@@ -129,7 +129,7 @@ TS6 은 영역에 고정된 사용자 풀(`userz1/2/3`)마다 Deployment·HPA(`h
 | + CiliumNetworkPolicy `toEntities: [host, remote-node]` | 401(연결) | 401 |
 
 - PE 는 고정 IP(`--ip-config … private-ip-address`)로 만들고, 생성 후 NIC 의 실제 IP 가 기대값과 다르면 중단합니다.
-- TN11·TN12·TN15~TN17 은 DNS 가 기대 PE IP 로 해석될 때만 판정합니다(다르면 INCONCLUSIVE).
+- TN11·TN12·TN15\~TN17 은 DNS 가 기대 PE IP 로 해석될 때만 판정합니다(다르면 INCONCLUSIVE).
 - `02-apply.sh` 는 정책 적용 후 다음 초로 넘긴 뒤 app 을 재시작합니다. 타임스탬프가 초 단위라 같은 초에 재시작하면 TN19 근거가 성립하지 않기 때문입니다.
 
 ### TN14: API 서버 비공개

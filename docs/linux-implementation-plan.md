@@ -2,13 +2,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 기존 PowerShell 판(`aks-network-validation/`)과 같은 검증(T1~T14)에 T15(API 서버 비공개)를 더해, 공인 IP 없는 Linux 관리 VM 에서 bash + az CLI 로 실행하고 Python 으로 판정하는 새 판을 만든다.
+**Goal:** 기존 PowerShell 판(`aks-network-validation/`)과 같은 검증(T1\~T14)에 T15(API 서버 비공개)를 더해, 공인 IP 없는 Linux 관리 VM 에서 bash + az CLI 로 실행하고 Python 으로 판정하는 새 판을 만든다.
 
 **Architecture:** 로컬 bash 의 얇은 실행기(`local/`)가 `az vm run-command` 로 코드를 vm-mgmt 에 올리고 `systemd-run` 으로 단계 스크립트(`vm/`)를 백그라운드 실행한 뒤, 로그를 폴링하고 결과를 base64 청크로 회수한다. 판정·파싱·보고는 표준 라이브러리만 쓰는 Python 패키지 `aksnetval/` 의 순수 함수이고 bash 는 `python3 -m aksnetval.<모듈> <함수> '<JSON>'` 으로 호출한다.
 
 **Tech Stack:** bash 5, az CLI, kubectl(`az aks install-cli`), Python 3.10+ 표준 라이브러리, pytest(로컬 WSL 에서만), Ubuntu 22.04(vm-mgmt).
 
-**Spec:** `docs/superpowers/specs/2026-11-20-aks-network-validation-linux-mgmt-vm-design.md` (T1~T14 규칙은 `docs/superpowers/specs/2026-11-19-aks-network-control-validation-design.md`)
+**Spec:** `docs/superpowers/specs/2026-11-20-aks-network-validation-linux-mgmt-vm-design.md` (T1\~T14 규칙은 `docs/superpowers/specs/2026-11-19-aks-network-control-validation-design.md`)
 
 ## Global Constraints
 
@@ -71,7 +71,7 @@ def test_cli_prints_json(capsys):
 - [ ] **Step 4: 통과 확인** — 같은 명령 → 전부 PASS
 - [x] **Step 5: 커밋** — `feat(linux): 파서·vCPU 계산 Python 이식`
 
-### Task 2: 판정 함수 (`aksnetval/verdict.py`, T1~T14)
+### Task 2: 판정 함수 (`aksnetval/verdict.py`, T1\~T14)
 
 **Files:**
 - Create: `aks-network-validation-linux/aksnetval/verdict.py`, `aks-network-validation-linux/tests/test_verdict.py`
@@ -223,7 +223,7 @@ def test_api_private_verdict(kw, expected): ...
 - Produces: `$VM_ROOT/state/kubeconfig`(`az aks get-credentials --file`), RG 안 리소스 일체
 
 - [ ] **Step 1: 01-infra.sh** — 시작 시 `az login --identity`, `aks_private_guard "$(az aks show … --query apiServerAccessProfile.enablePrivateCluster -o tsv 2>/dev/null)"` 실패면 즉시 중단. 이후 `01-infra.ps1:44-170` 순서·옵션 그대로 이식(서브넷, NSG 2개와 규칙, `id-aksnetval` + VNet Network Contributor, Storage + Blob PE + 사설 DNS, VM 2대, AKS + `--enable-private-cluster --disable-public-fqdn`, 영역별 사용자 풀). `--query` 에 JMESPath 괄호 사용 가능(cmd.exe 제약 없음).
-- [ ] **Step 2: 02-apply.sh** — `02-apply.ps1:73-150` 1)~7) 이식. `__GATEWAY_PRINCIPAL__` 치환은 `sed`, 결과는 `results/20-istio.rendered.yaml`.
+- [ ] **Step 2: 02-apply.sh** — `02-apply.ps1:73-150` 1)\~7) 이식. `__GATEWAY_PRINCIPAL__` 치환은 `sed`, 결과는 `results/20-istio.rendered.yaml`.
 - [ ] **Step 3: 검사** — `... python3 -m pytest tests/test_shell.py -q` PASS
 - [ ] **Step 4: 커밋** — `feat(linux): 인프라·매니페스트 적용 단계`
 
@@ -236,18 +236,18 @@ def test_api_private_verdict(kw, expected): ...
 - Consumes: `report row/save`, `verdict.*`, `parse.*`(CLI), `vm/lib/common.sh`
 - Produces: `$VM_ROOT/results/<stamp>.json/.md`, `$VM_ROOT/state/t15-vm.json`, `$VM_ROOT/state/latest`(최신 stamp 한 줄)
 
-- [ ] **Step 1: 이식** — `03-verify.ps1` 의 `--only` 묶음과 각 테스트를 Id·From·To·Expect 문자열까지 그대로 이식: network(`:55-131` T1~T11, `:132-157` T14), hpa(`:188-244` T12·T12b), floor(`:245-282` T12c), zone(`:355-416` T13), spread(`:417-464` T13b). Pod curl 명령은 `curl -s -o /dev/null -w '%{http_code}' -m 10 …; rc=$?; echo; echo rc=$rc`. VM curl(T1~T3)은 `az vm run-command invoke` 를 vm-mgmt 의 관리 ID 로. 원본처럼 테스트마다 오류를 잡아 `INCONCLUSIVE`·`실행 오류: …` 행을 남기고(bash 는 서브셸 + `|| …`), 스케일 테스트는 `trap` 으로 원복(minReplicas·zone-spread 0). 결과 정렬 순서 `T1 T2 T2c T3 T4 … T11 T12 T12b T12c T13 T13b T14`(T15 는 로컬 병합 시 끝에 추가).
+- [ ] **Step 1: 이식** — `03-verify.ps1` 의 `--only` 묶음과 각 테스트를 Id·From·To·Expect 문자열까지 그대로 이식: network(`:55-131` T1\~T11, `:132-157` T14), hpa(`:188-244` T12·T12b), floor(`:245-282` T12c), zone(`:355-416` T13), spread(`:417-464` T13b). Pod curl 명령은 `curl -s -o /dev/null -w '%{http_code}' -m 10 …; rc=$?; echo; echo rc=$rc`. VM curl(T1\~T3)은 `az vm run-command invoke` 를 vm-mgmt 의 관리 ID 로. 원본처럼 테스트마다 오류를 잡아 `INCONCLUSIVE`·`실행 오류: …` 행을 남기고(bash 는 서브셸 + `|| …`), 스케일 테스트는 `trap` 으로 원복(minReplicas·zone-spread 0). 결과 정렬 순서 `T1 T2 T2c T3 T4 … T11 T12 T12b T12c T13 T13b T14`(T15 는 로컬 병합 시 끝에 추가).
 - [ ] **Step 2: T15 VM 관측 추가** — `all` 또는 `network` 일 때 `az aks show` 의 `apiServerAccessProfile.enablePrivateCluster`·`enablePrivateClusterPublicFqdn`·`privateFqdn`, `getent ahostsv4 <privateFqdn>` IP 목록, `kube get --raw /readyz` 결과를 `state/t15-vm.json` 로 저장(판정은 로컬 Task 6 이 함)
 - [ ] **Step 3: 검사** — `test_shell.py` PASS
 - [ ] **Step 4: 커밋** — `feat(linux): 검증 단계(T1~T14, T15 관측)`
 
-### Task 9b: app 네임스페이스 PE egress 분리 (T11 변경, T16~T21 추가, Linux 판 전용)
+### Task 9b: app 네임스페이스 PE egress 분리 (T11 변경, T16\~T21 추가, Linux 판 전용)
 
 사용자 요구: NetworkPolicy 로 bff-b 만 Blob PE egress 를 허용하되, bff-b 의 기본 egress 는 막지 않는다. bff-a 는 다른 PE(두 번째 Storage) 만 허용.
 
 **Files:**
 - Create: `aks-network-validation-linux/manifests-linux/31-app-pe-egress.yaml` — `app-egress-default`(podSelector `{}`, 클러스터 내부 + `0.0.0.0/0 except 10.50.2.0/24`), `allow-bff-b-to-blob`(10.50.2.4/32:443), `allow-bff-a-to-blob2`(10.50.2.5/32:443)
-- Modify: `config.sh`(`BLOB_PE_IP=10.50.2.4`, `BLOB2_PE=pe-blob2-aksnetval`, `BLOB2_PE_IP=10.50.2.5`, `STORAGE2=staksnetvalb<해시>`), `vm/01-infra.sh`(PE 고정 IP `--ip-config`, 두 번째 Storage·PE, NIC IP 불일치 시 중단), `local/run.sh`(번들에 `manifests-linux/*.yaml` 합침), `vm/02-apply.sh`(31 적용 후 app Deployment 재시작), `vm/03-verify.sh`(T11 출발지 bff-b, `app_pe_tests`), `aksnetval/verdict.py`(`tls_verdict(..., expected_ip="")`, `started_after(pod_start, policy_created) -> bool`), `aksnetval/report.py`(ORDER 에 T16~T21 을 T11 뒤에)
+- Modify: `config.sh`(`BLOB_PE_IP=10.50.2.4`, `BLOB2_PE=pe-blob2-aksnetval`, `BLOB2_PE_IP=10.50.2.5`, `STORAGE2=staksnetvalb<해시>`), `vm/01-infra.sh`(PE 고정 IP `--ip-config`, 두 번째 Storage·PE, NIC IP 불일치 시 중단), `local/run.sh`(번들에 `manifests-linux/*.yaml` 합침), `vm/02-apply.sh`(31 적용 후 app Deployment 재시작), `vm/03-verify.sh`(T11 출발지 bff-b, `app_pe_tests`), `aksnetval/verdict.py`(`tls_verdict(..., expected_ip="")`, `started_after(pod_start, policy_created) -> bool`), `aksnetval/report.py`(ORDER 에 T16\~T21 을 T11 뒤에)
 - 공유 매니페스트(`aks-network-validation/manifests`)와 PowerShell 판은 바꾸지 않는다
 
 | Id | From | To | Expect | 대조군 |
@@ -288,7 +288,7 @@ Cilium 이 노드 IP 를 host·remote-node 엔터티로 다루므로, `app-egres
 - Create(실측 산출물, 커밋 안 함): `aks-network-validation-linux/results/`
 
 - [x] **Step 1: 실행(WSL)** — `local/00-bootstrap.sh` → `local/run.sh infra` → `local/run.sh apply` → `local/run.sh verify`. 실패 시 원인을 고치고 해당 단계만 다시 실행(멱등). run-command 업로드 청크 한도 초과가 나오면 `UPLOAD_CHUNK` 를 줄이고 값을 README 에 적는다.
-- [x] **Step 2: 결과 확인** — 결과 JSON 판정이 T1~T21 **24 PASS + T12b INFO**. 다르면 원인 분석 후 수정·재실행(Private Cluster + Istio 내부 Gateway 조합 문제는 설계 9절에 기록).
+- [x] **Step 2: 결과 확인** — 결과 JSON 판정이 T1\~T21 **24 PASS + T12b INFO**. 다르면 원인 분석 후 수정·재실행(Private Cluster + Istio 내부 Gateway 조합 문제는 설계 9절에 기록).
 - [x] **Step 3: README 작성** — 목적, 구조도(설계 5.1·5.3), 사전 요구(WSL/Cloud Shell, az login, 권한), 실행 순서, `--only`/`--poll`, T15 설명, 최신 결과 표(1회분만), 정리 방법. 표 셀 안 `|` 는 `\|`.
 - [x] **Step 4: 정리** — `local/99-cleanup.sh --force` 후 `az group exists -n rg-aksnetval-linux-krc` 가 `false` 가 될 때까지 확인
 - [x] **Step 5: 커밋** — `docs(linux): 실행 안내와 실측 결과`

@@ -81,9 +81,9 @@ PRD 장표에는 NSG, Istio AuthorizationPolicy, K8s NetworkPolicy로 Tier 간 �
 | 노드 풀 | 모드 | 영역 | VM 크기 | 노드 수 | 비고 |
 |---|---|---|---|---|---|
 | `system` | System | 1, 2, 3 | `Standard_D4s_v5` | 고정 1 | taint `CriticalAddonsOnly=true:NoSchedule`, AKS 필수 시스템 풀 |
-| `userz1` | User | 1 | `Standard_D2s_v5` | 오토스케일 1~3 | |
-| `userz2` | User | 2 | `Standard_D2s_v5` | 오토스케일 1~3 | |
-| `userz3` | User | 3 | `Standard_D2s_v5` | 오토스케일 1~3 | |
+| `userz1` | User | 1 | `Standard_D2s_v5` | 오토스케일 1\~3 | |
+| `userz2` | User | 2 | `Standard_D2s_v5` | 오토스케일 1\~3 | |
+| `userz3` | User | 3 | `Standard_D2s_v5` | 오토스케일 1\~3 | |
 
 - 노드 풀은 별도 시스템 풀 1개(1대) + 영역별 사용자 풀 3개로 구성한다(사용자 결정). 시스템 노드가 1대이므로 시스템 풀은 가용성을 보장하지 않으며 검증용으로만 허용한다. 시스템 노드에는 CoreDNS, istiod, Istio Gateway가 함께 올라가므로 `D4s_v5`를 유지한다(제 판단, 2 vCPU면 Pending 위험). AKS는 시스템 풀이 반드시 하나 있어야 하고, 시스템 풀을 영역 풀 중 하나로 겸하면 `kubernetes.azure.com/mode` 레이블이 달라 "유사 노드 그룹"으로 인식되지 않을 수 있으므로 시스템 풀을 별도로 둔다(제 판단).
 - 세 사용자 풀은 VM 크기, 레이블, taint를 동일하게 맞춘다. 영역 레이블과 AKS가 붙이는 풀 이름 레이블 외에는 차이가 없어야 CAS가 유사 그룹으로 본다.
@@ -182,7 +182,7 @@ PRD 검토용 Deployment·PDB·HPA YAML 에서 이 샘플로 확인할 가치가
 
 - 대조군이 실패하면 해당 차단 테스트는 INCONCLUSIVE.
 - T10·T11은 `nc` 같은 TCP 연결 확인을 쓰지 않는다. 사이드카가 있는 Pod에서는 Envoy가 TCP 연결을 Pod 안에서 먼저 받아 주므로, Cilium이 차단해도 연결 성공으로 보인다. 대신 실제 TLS 연결 수립(`curl`의 HTTP 코드가 000이 아님)으로 판정한다. Envoy의 업스트림 연결도 Pod IP로 나가므로 NetworkPolicy가 그대로 적용된다(제 판단, 실행 결과로 확인). 먼저 DNS가 PE IP(10.50.2.x)로 해석되는지 확인하고, 아니면 INCONCLUSIVE로 판정한다.
-- T12, T13은 시간이 걸리므로(각 10~15분) `-Only Network`, `-Only Hpa`, `-Only Floor`, `-Only Zone`, `-Only Spread` 같은 선택 실행을 지원한다.
+- T12, T13은 시간이 걸리므로(각 10\~15분) `-Only Network`, `-Only Hpa`, `-Only Floor`, `-Only Zone`, `-Only Spread` 같은 선택 실행을 지원한다.
 - 결과는 콘솔 표 + `aks-network-validation/results/<시각>.json`과 `.md`로 저장.
 
 ## 7. 파일 구성
@@ -204,7 +204,7 @@ aks-network-validation/
 **사용자 결정**
 - 목적: 아키텍처 설계의 기능 검증
 - 범위: A안(AKS 중심) + HPA 축소(5 → 2, Pods 1 / 60s)
-- 노드: 영역 1·2·3에 사용자 노드 풀 3개(`D2s_v5`, 1~3대), 시스템 풀 `D4s_v5` 1대 별도, `balance-similar-node-groups=true` (자원 제약으로 노드 크기·시스템 노드 수 축소)
+- 노드: 영역 1·2·3에 사용자 노드 풀 3개(`D2s_v5`, 1\~3대), 시스템 풀 `D4s_v5` 1대 별도, `balance-similar-node-groups=true` (자원 제약으로 노드 크기·시스템 노드 수 축소)
 - 방식: az CLI 스크립트 + YAML
 
 **제 판단(검토 시 확인 요청)**

@@ -17,7 +17,7 @@
 ## 2. 목표 · 비목표 · 반목표
 
 **목표**
-1. 기존 T1~T14(T12b·T12c·T13b 포함)를 Private Cluster 에서 같은 판정 규칙으로 재현한다.
+1. 기존 T1\~T14(T12b·T12c·T13b 포함)를 Private Cluster 에서 같은 판정 규칙으로 재현한다.
 2. 클러스터 생성·매니페스트 적용·검증을 관리 VM 안에서 bash + az CLI + kubectl 로 실행한다.
 3. 판정 로직은 Python 순수 함수로 옮기고 pytest 로 기존 Pester 단위 테스트와 같은 사례를 검증한다.
 4. 로컬에는 `az` 와 bash 만 있으면 된다(Windows 는 Git Bash 또는 Azure Cloud Shell).
@@ -31,7 +31,7 @@
 
 **반목표(이러면 실패)**
 - run-command 출력 4KB 제한 때문에 검증 결과 일부가 사라지거나 잘린 채로 PASS 처리되는 것.
-- 관리 VM·`snet-mgmt` 추가가 T1~T3(NSG) 판정 결과에 영향을 주는 것.
+- 관리 VM·`snet-mgmt` 추가가 T1\~T3(NSG) 판정 결과에 영향을 주는 것.
 - 판정 규칙이 기존 PowerShell 판과 달라지는 것(같은 입력에 다른 판정).
 
 ## 3. 제약(공식 문서 확인)
@@ -136,13 +136,13 @@ aks-network-validation-linux/
 
 ### 5.5 테스트 매트릭스
 
-T1~T14 는 기존 설계의 출발지·대상·기대값·판정 규칙을 그대로 쓴다. 바뀌는 것은 **실행 위치**뿐이다.
+T1\~T14 는 기존 설계의 출발지·대상·기대값·판정 규칙을 그대로 쓴다. 바뀌는 것은 **실행 위치**뿐이다.
 
 | 구분 | 기존 | 변경 |
 |---|---|---|
-| Pod 내부 curl(T4~T11, T14) | 로컬 kubectl exec | vm-mgmt 의 kubectl exec(Private API 경유) |
-| VM curl(T1~T3) | 로컬 → `az vm run-command` → vm-appgw-sim/vm-other | vm-mgmt → 같은 명령. 관리 ID 로 호출 |
-| 스케일(T12~T13b) | 로컬 kubectl patch·관찰 | vm-mgmt 에서 같은 동작 |
+| Pod 내부 curl(T4\~T11, T14) | 로컬 kubectl exec | vm-mgmt 의 kubectl exec(Private API 경유) |
+| VM curl(T1\~T3) | 로컬 → `az vm run-command` → vm-appgw-sim/vm-other | vm-mgmt → 같은 명령. 관리 ID 로 호출 |
+| 스케일(T12\~T13b) | 로컬 kubectl patch·관찰 | vm-mgmt 에서 같은 동작 |
 
 **T15(추가): API 서버 비공개**
 
@@ -204,8 +204,8 @@ T1~T14 는 기존 설계의 출발지·대상·기대값·판정 규칙을 그�
 ## 8. 검증 계획
 
 1. pytest 전체 통과(기존 Pester 93개 사례가 모두 대응되어야 함, 대응표를 테스트 파일 주석에 남김).
-2. 실제 실행: bootstrap → infra → apply → verify 전체 1회. 결과 T1~T15, 기대: 18 PASS + T12b INFO.
-3. 기존 PowerShell 판 결과(2026-11-20)와 T1~T14 판정 비교.
+2. 실제 실행: bootstrap → infra → apply → verify 전체 1회. 결과 T1\~T15, 기대: 18 PASS + T12b INFO.
+3. 기존 PowerShell 판 결과(2026-11-20)와 T1\~T14 판정 비교.
 4. 정리 후 `az group exists` 가 false 인지 확인.
 
 ## 9. 위험과 남은 질문
